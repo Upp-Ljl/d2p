@@ -99,7 +99,8 @@ sessionRoutes.post('/start', async (c) => {
 });
 
 sessionRoutes.get('/current', (c) => {
-  const session = queries.getCurrentActiveSession();
+  // Active session if any, else most recent (terminal) so UI/smoke see final state.
+  const session = queries.getCurrentActiveSession() ?? queries.getLatestSession();
   const body: CurrentSessionRes = {
     session,
     demo: null,

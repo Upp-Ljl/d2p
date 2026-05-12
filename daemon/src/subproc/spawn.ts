@@ -52,9 +52,24 @@ export function runSubproc(opts: SpawnOpts): Promise<SpawnResult> {
     const stdoutBuf = { text: '', remaining: maxBuffer, truncated: false };
     const stderrBuf = { text: '', remaining: maxBuffer, truncated: false };
 
+    // Special-cases:
+    // - `.mjs`/`.cjs`/`.js` script paths: spawn `node` with the script, preserving
+    //   each argv element (no shell parsing — long prompts with spaces survive).
+    // - Windows `.cmd`/`.bat`: must go through cmd.exe; explicit invocation
+    //   keeps shell:false and lets Node Win32-quote args correctly.
+    let resolvedCmd = opts.cmd;
+    let resolvedArgs = opts.args;
+    if (/\.(mjs|cjs|js)$/i.test(opts.cmd)) {
+      resolvedCmd = process.execPath;
+      resolvedArgs = [opts.cmd, ...opts.args];
+    } else if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(opts.cmd)) {
+      resolvedCmd = process.env.ComSpec ?? 'cmd.exe';
+      resolvedArgs = ['/d', '/s', '/c', opts.cmd, ...opts.args];
+    }
+
     let child;
     try {
-      child = spawn(opts.cmd, opts.args, {
+      child = spawn(resolvedCmd, resolvedArgs, {
         cwd: opts.cwd,
         env: opts.env ?? process.env,
         shell: false,

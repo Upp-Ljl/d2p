@@ -4,6 +4,11 @@ import { serve } from '@hono/node-server';
 import { sessionRoutes } from './routes/session.js';
 import { logRoutes } from './routes/log.js';
 import { healthRoutes } from './routes/health.js';
+import { visionRoutes } from './routes/vision.js';
+import { detectorRoutes } from './routes/detector.js';
+import { presetRoutes } from './routes/preset.js';
+import { loopRoutes } from './routes/loop.js';
+import { gapRoutes } from './routes/gaps.js';
 
 const app = new Hono();
 
@@ -16,6 +21,11 @@ app.use(
 );
 
 app.route('/api/session', sessionRoutes);
+app.route('/api/vision', visionRoutes);
+app.route('/api/detector', detectorRoutes);
+app.route('/api/preset', presetRoutes);
+app.route('/api/loop', loopRoutes);
+app.route('/api/gaps', gapRoutes);
 app.route('/api/log', logRoutes);
 app.route('/api', healthRoutes);
 

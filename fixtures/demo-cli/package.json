@@ -1,0 +1,13 @@
+{
+  "name": "demo-cli",
+  "version": "0.0.1",
+  "private": true,
+  "bin": { "demo-cli": "./index.js" },
+  "scripts": {
+    "build": "node -e \"console.log('no build')\"",
+    "test": "node -e \"console.log('no tests')\""
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  }
+}

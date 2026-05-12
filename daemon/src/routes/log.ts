@@ -8,7 +8,7 @@ export const logRoutes = new Hono();
 
 logRoutes.get('/stream', (c) => {
   return streamSSE(c, async (stream) => {
-    const session = queries.getCurrentActiveSession();
+    const session = queries.getCurrentActiveSession() ?? queries.getLatestSession();
     if (session) {
       const snapshot = queries.recentLogEvents(session.id, 100);
       for (const e of snapshot) {
@@ -77,7 +77,7 @@ logRoutes.get('/stream', (c) => {
 });
 
 logRoutes.get('/events', (c) => {
-  const session = queries.getCurrentActiveSession();
+  const session = queries.getCurrentActiveSession() ?? queries.getLatestSession();
   if (!session) return c.json({ events: [], hasMore: false });
   const limit = Math.min(parseInt(c.req.query('limit') ?? '200', 10), 1000);
   const events = queries.recentLogEvents(session.id, limit);

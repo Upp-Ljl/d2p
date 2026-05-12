@@ -57,9 +57,15 @@ export async function callClaude<T = unknown>(opts: CallClaudeOpts<T>): Promise<
     };
   }
 
+  // Strip trailing token-usage / metadata lines that may follow the JSON body.
+  const cleaned = result.stdout
+    .replace(/\r/g, '')
+    .replace(/\n?USAGE:[^\n]*\n?/g, '\n')
+    .trim();
+
   let json: unknown;
   try {
-    json = JSON.parse(result.stdout);
+    json = JSON.parse(cleaned);
   } catch (e) {
     return {
       ok: false,

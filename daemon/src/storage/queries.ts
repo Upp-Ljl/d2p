@@ -4,15 +4,26 @@ import type {
   Session,
   Gap,
   Fix,
+  FixStatus,
   LogEvent,
   SessionStatus,
   GapStatus,
   PresetStatusItem,
   CostTotals,
   ProjectType,
+  ReviewKind,
+  ClaudeModel,
+  Verdict,
+  ReasonCode,
+  SplitGapSpec,
+  VisionDraft,
 } from '../types.js';
 import { asAbsPath } from '../util/path.js';
-import { assertGapTransition, assertSessionTransition } from '../state/transitions.js';
+import {
+  assertFixTransition,
+  assertGapTransition,
+  assertSessionTransition,
+} from '../state/transitions.js';
 
 interface DemoRow {
   id: number;
@@ -113,6 +124,11 @@ export class Queries {
     this.db.prepare('UPDATE demos SET last_session_at = ? WHERE id = ?').run(ts, demoId);
   }
 
+  getDemo(id: number): Demo | null {
+    const row = this.db.prepare('SELECT * FROM demos WHERE id = ?').get(id) as DemoRow | undefined;
+    return row ? demoFromRow(row) : null;
+  }
+
   setDemoInferredType(demoId: number, type: ProjectType): void {
     this.db.prepare('UPDATE demos SET inferred_type = ? WHERE id = ?').run(type, demoId);
   }
@@ -152,6 +168,14 @@ export class Queries {
         `SELECT * FROM sessions WHERE status IN ('SETUP','LOOPING','PAUSED')
          ORDER BY started_at DESC LIMIT 1`,
       )
+      .get() as SessionRow | undefined;
+    return row ? sessionFromRow(row) : null;
+  }
+
+  /** Most recently started session, regardless of status. */
+  getLatestSession(): Session | null {
+    const row = this.db
+      .prepare('SELECT * FROM sessions ORDER BY started_at DESC LIMIT 1')
       .get() as SessionRow | undefined;
     return row ? sessionFromRow(row) : null;
   }
@@ -275,6 +299,222 @@ export class Queries {
       .prepare('SELECT COALESCE(MAX(attempt), 0) + 1 AS next FROM fixes WHERE gap_id = ?')
       .get(gapId) as { next: number };
     return row.next;
+  }
+
+  insertFix(input: {
+    gapId: number;
+    attempt: number;
+    branch: string;
+    worktreePath: string;
+  }): Fix {
+    const now = Date.now();
+    const result = this.db
+      .prepare(
+        `INSERT INTO fixes(gap_id, attempt, branch, worktree_path, status, created_at, files_changed)
+         VALUES (?, ?, ?, ?, 'STARTED', ?, ?)`,
+      )
+      .run(input.gapId, input.attempt, input.branch, input.worktreePath, now, JSON.stringify([]));
+    return this.getFix(result.lastInsertRowid as number)!;
+  }
+
+  getFix(id: number): Fix | null {
+    interface Row {
+      id: number;
+      gap_id: number;
+      attempt: number;
+      branch: string;
+      worktree_path: string;
+      commit_sha: string | null;
+      static_gate_passed: number | null;
+      alignment_score: number | null;
+      reviewer_verdict: string | null;
+      reason_code: string | null;
+      status: FixStatus;
+      stderr_excerpt: string | null;
+      files_changed: string | null;
+      confidence: number | null;
+      created_at: number;
+      finished_at: number | null;
+    }
+    const row = this.db.prepare('SELECT * FROM fixes WHERE id = ?').get(id) as Row | undefined;
+    if (!row) return null;
+    return {
+      id: row.id,
+      gapId: row.gap_id,
+      attempt: row.attempt,
+      branch: row.branch,
+      worktreePath: row.worktree_path as unknown as Fix['worktreePath'],
+      commitSha: row.commit_sha,
+      staticGatePassed: row.static_gate_passed === null ? null : row.static_gate_passed === 1,
+      alignmentScore: row.alignment_score,
+      reviewerVerdict: row.reviewer_verdict as Verdict | null,
+      reasonCode: row.reason_code as ReasonCode | null,
+      status: row.status,
+      stderrExcerpt: row.stderr_excerpt,
+      filesChanged: row.files_changed ? (JSON.parse(row.files_changed) as string[]) : [],
+      confidence: row.confidence,
+      createdAt: row.created_at,
+      finishedAt: row.finished_at,
+    };
+  }
+
+  transitionFix(fixId: number, to: FixStatus, fields: Partial<Fix> = {}): void {
+    const current = this.getFix(fixId);
+    if (!current) throw new Error(`fix ${fixId} not found`);
+    assertFixTransition(current.status, to);
+    const isTerminal = to === 'MERGED' || to === 'DROPPED';
+    const sets: string[] = ['status = ?'];
+    const values: unknown[] = [to];
+
+    if (fields.commitSha !== undefined) {
+      sets.push('commit_sha = ?');
+      values.push(fields.commitSha);
+    }
+    if (fields.staticGatePassed !== undefined) {
+      sets.push('static_gate_passed = ?');
+      values.push(fields.staticGatePassed === null ? null : fields.staticGatePassed ? 1 : 0);
+    }
+    if (fields.alignmentScore !== undefined) {
+      sets.push('alignment_score = ?');
+      values.push(fields.alignmentScore);
+    }
+    if (fields.reviewerVerdict !== undefined) {
+      sets.push('reviewer_verdict = ?');
+      values.push(fields.reviewerVerdict);
+    }
+    if (fields.reasonCode !== undefined) {
+      sets.push('reason_code = ?');
+      values.push(fields.reasonCode);
+    }
+    if (fields.stderrExcerpt !== undefined) {
+      sets.push('stderr_excerpt = ?');
+      values.push(fields.stderrExcerpt);
+    }
+    if (fields.filesChanged !== undefined) {
+      sets.push('files_changed = ?');
+      values.push(JSON.stringify(fields.filesChanged));
+    }
+    if (fields.confidence !== undefined) {
+      sets.push('confidence = ?');
+      values.push(fields.confidence);
+    }
+    if (isTerminal) {
+      sets.push('finished_at = ?');
+      values.push(Date.now());
+    }
+
+    values.push(fixId);
+    this.db.prepare(`UPDATE fixes SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  }
+
+  // ─── reviews ───────────────────────────────────────────────────────────
+
+  insertReview(input: {
+    fixId: number;
+    kind: ReviewKind;
+    model: ClaudeModel;
+    verdict: Verdict | null;
+    hints: string[];
+    reasonCode: ReasonCode | null;
+    difficulty: number | null;
+    splitInto: SplitGapSpec[] | null;
+    rawJson: string;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO reviews(fix_id, kind, model, verdict, hints, reason_code, difficulty, split_into, raw_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.fixId,
+        input.kind,
+        input.model,
+        input.verdict,
+        JSON.stringify(input.hints),
+        input.reasonCode,
+        input.difficulty,
+        input.splitInto ? JSON.stringify(input.splitInto) : null,
+        input.rawJson,
+        Date.now(),
+      );
+  }
+
+  // ─── vision drafts ─────────────────────────────────────────────────────
+
+  upsertVisionDraft(input: {
+    sessionId: number;
+    roundIndex: number;
+    questionId: string;
+    question: string;
+    answer: string;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO vision_drafts(session_id, round_index, question_id, question, answer, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(session_id, question_id) DO UPDATE SET
+           round_index = excluded.round_index,
+           question = excluded.question,
+           answer = excluded.answer`,
+      )
+      .run(input.sessionId, input.roundIndex, input.questionId, input.question, input.answer, Date.now());
+  }
+
+  listVisionDrafts(sessionId: number): VisionDraft[] {
+    interface Row {
+      id: number;
+      session_id: number;
+      round_index: number;
+      question_id: string;
+      question: string;
+      answer: string;
+      created_at: number;
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM vision_drafts WHERE session_id = ?
+         ORDER BY round_index, created_at`,
+      )
+      .all(sessionId) as Row[];
+    return rows.map((r) => ({
+      id: r.id,
+      sessionId: r.session_id,
+      roundIndex: r.round_index,
+      questionId: r.question_id,
+      question: r.question,
+      answer: r.answer,
+      createdAt: r.created_at,
+    }));
+  }
+
+  maxVisionRound(sessionId: number): number {
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(MAX(round_index), 0) AS r FROM vision_drafts WHERE session_id = ?`,
+      )
+      .get(sessionId) as { r: number };
+    return row.r;
+  }
+
+  // ─── repo summaries cache ──────────────────────────────────────────────
+
+  putRepoSummary(sessionId: number, headSha: string | null, summaryJson: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO repo_summaries(session_id, ts, head_sha, summary_json) VALUES (?, ?, ?, ?)`,
+      )
+      .run(sessionId, Date.now(), headSha, summaryJson);
+  }
+
+  latestRepoSummary(sessionId: number): { ts: number; headSha: string | null; json: string } | null {
+    const row = this.db
+      .prepare(
+        `SELECT ts, head_sha, summary_json FROM repo_summaries
+         WHERE session_id = ? ORDER BY ts DESC LIMIT 1`,
+      )
+      .get(sessionId) as { ts: number; head_sha: string | null; summary_json: string } | undefined;
+    if (!row) return null;
+    return { ts: row.ts, headSha: row.head_sha, json: row.summary_json };
   }
 
   // ─── log_events ────────────────────────────────────────────────────────

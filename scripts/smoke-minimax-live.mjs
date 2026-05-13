@@ -47,11 +47,21 @@ async function main() {
   const apiKey = readFileSync(KEY_FILE, 'utf8').trim();
   if (!apiKey) fail('key file empty');
 
-  const tmp = mkdtempSync(path.join(os.tmpdir(), 'd2p-live-mmm-'));
+  const keepTmp = process.env.D2P_KEEP_TMP === '1';
+  const pollMs = parseInt(process.env.D2P_POLL_MS ?? '900000', 10);
+
+  let tmp;
+  if (process.env.D2P_RUN_DEMO_DIR) {
+    tmp = process.env.D2P_RUN_DEMO_DIR;
+    mkdirSync(tmp, { recursive: true });
+  } else {
+    tmp = mkdtempSync(path.join(os.tmpdir(), 'd2p-live-mmm-'));
+  }
   const demoDir = path.join(tmp, 'demo-cli');
   const dbPath = path.join(tmp, 'state.db');
   const configPath = path.join(tmp, 'config.json');
-  log('tmp:', tmp);
+  log('workspace:', tmp);
+  log('keepTmp:', keepTmp, '| pollMs:', pollMs);
 
   cpSync(path.join(repoRoot, 'fixtures', 'demo-cli'), demoDir, { recursive: true });
   spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: demoDir });
@@ -96,7 +106,9 @@ async function main() {
 
   const cleanup = () => {
     try { daemon.kill('SIGTERM'); } catch { /* ignore */ }
-    try { rmSync(tmp, { recursive: true, force: true, maxRetries: 3 }); } catch { /* ignore */ }
+    if (!keepTmp) {
+      try { rmSync(tmp, { recursive: true, force: true, maxRetries: 3 }); } catch { /* ignore */ }
+    }
   };
   process.on('exit', cleanup);
   process.on('SIGINT', () => { cleanup(); process.exit(130); });
@@ -169,7 +181,7 @@ async function main() {
     final = await pollFor(
       `${DAEMON_URL}/api/session/current`,
       (s) => s?.session?.status === 'DONE' || s?.session?.status === 'PAUSED',
-      900_000, 5000,
+      pollMs, 5000,
     );
   } finally {
     clearInterval(stallCheck);

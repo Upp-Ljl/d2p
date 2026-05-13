@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { bootstrap, useStore } from './store.js';
 import { HealthBadge } from './components/HealthBadge.js';
 import { Landing } from './pages/Landing.js';
@@ -11,7 +11,8 @@ export function App() {
   useEffect(() => bootstrap(), []);
   const session = useStore((s) => s.session);
   const health = useStore((s) => s.health);
-  const [showSettings, setShowSettings] = useState(false);
+  const showSettings = useStore((s) => s.showSettings);
+  const setShowSettings = useStore((s) => s.setShowSettings);
 
   if (showSettings) {
     return <Settings onClose={() => setShowSettings(false)} />;

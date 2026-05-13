@@ -14,6 +14,7 @@ export function Workspace() {
   const resumeLoop = useStore((s) => s.resumeLoop);
   const endSession = useStore((s) => s.endSession);
 
+  const setShowSettings = useStore((s) => s.setShowSettings);
   const isPaused = session?.status === 'PAUSED';
   const isLooping = session?.status === 'LOOPING';
   const isPausing = loopState?.pauseRequested === true && loopState?.isRunning === true;
@@ -40,6 +41,7 @@ export function Workspace() {
               Resume ▶
             </Button>
           )}
+          <Button variant="ghost" onClick={() => setShowSettings(true)}>⚙ 设置 / 切引擎</Button>
           <Button variant="ghost" onClick={() => void endSession()}>结束会话</Button>
         </div>
       </header>

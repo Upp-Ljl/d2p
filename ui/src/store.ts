@@ -44,6 +44,10 @@ interface Store {
   // end
   summaryMdPath: string | null;
 
+  // ui chrome
+  showSettings: boolean;
+  setShowSettings: (b: boolean) => void;
+
   // actions
   refreshHealth: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -87,6 +91,8 @@ export const useStore = create<Store>((set, get) => ({
   events: [],
   sseConnected: false,
   summaryMdPath: null,
+  showSettings: false,
+  setShowSettings: (b) => set({ showSettings: b }),
 
   async refreshHealth() {
     try {

@@ -87,10 +87,15 @@ export async function finalizeVisionFile(
 }
 
 function pickK(difficulty: number): number {
-  if (difficulty <= 1) return 1;
-  if (difficulty <= 3) return 2;
-  return 3;
+  // Every gap deserves at least one retry — a single transient failure
+  // (parse glitch, empty edit plan, static-gate hiccup) should not jump
+  // straight to NEED_HUMAN.
+  if (difficulty <= 1) return 2;
+  if (difficulty <= 3) return 3;
+  return 4;
 }
+
+const DEFAULT_KBUDGET = 2;
 
 function presetStatusSummary(items: { item: string; status: string }[]): string {
   return items.map((i) => `- ${i.item}: ${i.status}`).join('\n');
@@ -179,7 +184,7 @@ async function processGap(ctx: LoopCtx, gap: Gap): Promise<void> {
   emit(q, session.id, 'GAP_PICKED', { gapId: gap.id, slug: gap.slug, severity: gap.severity });
 
   let retryHints: string[] = [];
-  let kBudget = gap.dynamicK ?? 1; // initial; gets bumped after first behavioral
+  let kBudget = gap.dynamicK ?? DEFAULT_KBUDGET; // bumped after first behavioral if needed
 
   let attempt = q.nextAttemptNumber(gap.id);
   for (; attempt <= MAX_ITERATIONS; attempt++) {

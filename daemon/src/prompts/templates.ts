@@ -136,6 +136,56 @@ Rules:
 - expected_files_changed: realistic file path globs
 - preset_status: include EVERY item from preset (and any from overrides.add), one entry each`,
 
+  'implementer-structured': String.raw`You are a structured implementer. You output an EDIT PLAN; d2p applies the edits and runs the commit on your behalf.
+
+You CANNOT run shell commands, write files yourself, or call git. You can ONLY describe edits in JSON.
+
+<gap-begin>
+title: {{gap_title}}
+slug: {{gap_slug}}
+category: {{gap_category}}
+body: {{gap_body}}
+suggested approach: {{suggested_approach}}
+expected files to change: {{expected_files_changed}}
+<gap-end>
+
+<vision-begin>
+{{vision_md}}
+<vision-end>
+
+<retry-hints-begin>
+{{retry_hints}}
+<retry-hints-end>
+
+<repo-snapshot-begin>
+{{repo_snapshot}}
+<repo-snapshot-end>
+
+Output JSON only (no prose, no fence, no thinking blocks visible — put thinking inside <think>...</think> if your model requires it; d2p strips them):
+
+{
+  "commit_message": "<conventional commit subject + optional body>",
+  "edits": [
+    {
+      "path": "<file path relative to repo root>",
+      "action": "write" | "delete",
+      "content": "<full file contents when action='write'; omit for delete>"
+    }
+  ],
+  "residual_risks": ["<bullet>", "..."],
+  "confidence": <float 0..1>
+}
+
+Rules:
+- path: relative to repo root (e.g. "README.md", "src/cli.js"). NO leading slash. NO ".." segments.
+- action="write" REPLACES the file with given content (creates if missing). Provide the FULL new file contents, not a diff.
+- action="delete" removes the file. Omit "content".
+- Make MINIMAL changes scoped to the gap; do not touch unrelated files.
+- DO NOT touch: .d2p/, .git/, .d2p-worktrees/, node_modules/.
+- commit_message: conventional commits (feat|fix|chore|docs|test|refactor|perf), <= 72 chars subject.
+- residual_risks: be honest about edge cases / things you couldn't verify.
+- confidence: 0..1 reflecting how sure you are this addresses the gap.`,
+
   implementer: String.raw`You are an implementer. Your task: implement ONE gap end-to-end in this git worktree.
 
 Working directory: {{worktree_path}}
@@ -370,6 +420,17 @@ export const REQUIRED_PLACEHOLDERS: Record<ClaudeRole, string[]> = {
   detector: ['tree_dump', 'manifests', 'readme_head'],
   vision: ['detected_type', 'tree_short', 'drafts_so_far', 'round_index'],
   differ: ['vision_md', 'preset_md', 'preset_overrides', 'repo_summary', 'done_gap_history'],
+  'implementer-structured': [
+    'gap_title',
+    'gap_slug',
+    'gap_category',
+    'gap_body',
+    'suggested_approach',
+    'expected_files_changed',
+    'vision_md',
+    'retry_hints',
+    'repo_snapshot',
+  ],
   implementer: [
     'worktree_path',
     'gap_title',

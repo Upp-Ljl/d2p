@@ -19,6 +19,7 @@ export function detectRole(prompt) {
   if (prompt.includes('You are eliciting a product vision')) return 'vision';
   if (prompt.includes('You summarize a repository for downstream agents')) return 'repo-summary';
   if (prompt.includes('You diff a code repository against a vision')) return 'differ';
+  if (prompt.includes('You are a structured implementer')) return 'implementer-structured';
   if (prompt.includes('You are an implementer')) return 'implementer';
   if (prompt.includes('You score how well a code change')) return 'alignment';
   if (prompt.includes('You are an independent code reviewer')) return 'behavioral';
@@ -133,6 +134,25 @@ export function respond(prompt, opts = {}) {
           { item: 'cli-help', status: 'done', note: null },
           { item: 'cli-version', status: 'missing', note: null },
         ],
+      },
+      usage: FAKE_USAGE,
+    };
+  }
+
+  if (role === 'implementer-structured') {
+    // Pure-HTTP engine: emit an edit plan; d2p applies it server-side.
+    return {
+      json: {
+        commit_message: 'feat(cli): add VERSION.txt placeholder for --version flag',
+        edits: [
+          {
+            path: 'VERSION.txt',
+            action: 'write',
+            content: '0.1.0\n',
+          },
+        ],
+        residual_risks: ['VERSION.txt not wired into commander program.version() yet'],
+        confidence: 0.75,
       },
       usage: FAKE_USAGE,
     };

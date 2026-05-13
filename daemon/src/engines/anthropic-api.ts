@@ -16,16 +16,49 @@ interface MessagesResponse {
 const SYSTEM_PROMPT =
   'You output JSON only — no markdown fence, no preamble, no commentary. If the input asks for a specific JSON schema, output exactly that schema.';
 
+function stripThinking(s: string): string {
+  return s
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+}
+
+function extractLastBalancedJson(s: string): string | null {
+  for (let end = s.length - 1; end >= 0; end--) {
+    const ch = s[end];
+    if (ch !== '}' && ch !== ']') continue;
+    let depth = 0;
+    let inStr = false;
+    let escaped = false;
+    for (let i = end; i >= 0; i--) {
+      const c = s[i];
+      if (inStr) {
+        if (escaped) { escaped = false; continue; }
+        if (c === '\\') { escaped = true; continue; }
+        if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') { inStr = true; continue; }
+      if (c === '}' || c === ']') depth++;
+      else if (c === '{' || c === '[') {
+        depth--;
+        if (depth === 0) return s.slice(i, end + 1);
+      }
+    }
+  }
+  return null;
+}
+
 function tryParseJsonLoose(s: string): unknown {
-  try { return JSON.parse(s); } catch { /* fall through */ }
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(s);
+  const cleaned = stripThinking(s).trim();
+  try { return JSON.parse(cleaned); } catch { /* fall through */ }
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(cleaned);
   if (fenced && fenced[1]) {
     try { return JSON.parse(fenced[1]); } catch { /* fall through */ }
   }
-  const braceStart = s.indexOf('{');
-  const braceEnd = s.lastIndexOf('}');
-  if (braceStart >= 0 && braceEnd > braceStart) {
-    try { return JSON.parse(s.slice(braceStart, braceEnd + 1)); } catch { /* fall through */ }
+  const balanced = extractLastBalancedJson(cleaned);
+  if (balanced) {
+    try { return JSON.parse(balanced); } catch { /* fall through */ }
   }
   throw new Error('no parseable JSON in response');
 }

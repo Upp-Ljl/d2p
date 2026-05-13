@@ -1,6 +1,8 @@
 import { runAgent } from './runner.js';
 import { Queries } from '../storage/queries.js';
 import { ImplementerOutputSchema } from '../prompts/schemas.js';
+import { currentEngineConfig } from '../engines/registry.js';
+import { runStructuredImplementer } from './implementer-structured.js';
 import type { Gap, ImplementerOutput } from '../types.js';
 
 export interface ImplementerInput {
@@ -16,6 +18,14 @@ export async function runImplementer(
   fixId: number,
   input: ImplementerInput,
 ): Promise<ImplementerOutput | { error: string }> {
+  // Engines without tool-use capability (openai-compat / anthropic-api) can't
+  // run git or write files. Route them through structured-edit, where d2p
+  // applies the model's edit plan server-side.
+  const kind = currentEngineConfig()?.kind ?? 'claude-cli';
+  if (kind !== 'claude-cli') {
+    return runStructuredImplementer(q, sessionId, fixId, input);
+  }
+
   const result = await runAgent<unknown>(q, {
     role: 'implementer',
     model: 'sonnet',

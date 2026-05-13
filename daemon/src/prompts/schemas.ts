@@ -73,6 +73,26 @@ export const ImplementerOutputSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
+const SafePath = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine((p) => !p.startsWith('/') && !/^[a-zA-Z]:/.test(p), 'path must be relative')
+  .refine((p) => !p.split(/[\\/]/).includes('..'), 'no .. segments')
+  .refine((p) => !/^(\.d2p|\.git|\.d2p-worktrees|node_modules)(\/|\\|$)/.test(p), 'forbidden top-level dir');
+
+export const StructuredEditSchema = z.discriminatedUnion('action', [
+  z.object({ path: SafePath, action: z.literal('write'), content: z.string() }),
+  z.object({ path: SafePath, action: z.literal('delete') }),
+]);
+
+export const StructuredImplementerOutputSchema = z.object({
+  commit_message: z.string().min(1).max(500),
+  edits: z.array(StructuredEditSchema).min(1, 'at least one edit'),
+  residual_risks: z.array(z.string()).default([]),
+  confidence: z.number().min(0).max(1).default(0.7),
+});
+
 export const AlignmentOutputSchema = z.object({
   alignment: z.number().min(0).max(1),
   addresses_gap: z.boolean(),

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { quote } from 'shell-quote';
+import { parse as parseShell } from 'shell-quote';
 import { runSubproc, type SpawnResult } from '../subproc/spawn.js';
 
 export interface CheckCommands {
@@ -19,19 +19,16 @@ export interface StaticGateResult {
   failedStage: 'build' | 'test' | 'typecheck' | null;
 }
 
-const DENYLIST = [';', '|', '&&', '||', '>', '<'];
-
 function safeSplit(cmd: string): string[] | null {
   if (!cmd.trim()) return null;
-  for (const tok of DENYLIST) {
-    if (cmd.includes(tok)) return null;
-  }
-  // Use shell-quote to parse, but accept ONLY plain tokens (string entries),
-  // not operators (objects). If anything else, reject.
-  const parsed = quote([cmd]); // round-trip sanity (not used directly)
-  void parsed;
-  // Tokenize: simple whitespace split is enough since we deny shell ops.
-  return cmd.trim().split(/\s+/);
+  // shell-quote.parse honors quoting (so `node -e "console.log('hi')"` becomes
+  // ['node', '-e', "console.log('hi')"]) and returns operator OBJECTS for any
+  // shell metacharacter (`;`, `|`, `&&`, `>`, `<`, `$VAR`, etc.). If parse
+  // contains anything other than plain string tokens, refuse — denylist is
+  // implicit and complete.
+  const tokens = parseShell(cmd, {}, { escape: '\\' });
+  if (tokens.some((t) => typeof t !== 'string')) return null;
+  return tokens as string[];
 }
 
 export async function readCheckCommands(

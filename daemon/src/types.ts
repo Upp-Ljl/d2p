@@ -116,6 +116,7 @@ export type ClaudeRole =
   | 'vision'
   | 'differ'
   | 'implementer'
+  | 'implementer-structured'
   | 'alignment'
   | 'behavioral'
   | 'adversarial'

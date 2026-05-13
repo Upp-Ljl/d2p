@@ -13,6 +13,7 @@ export const ROLE_TIMEOUTS: Record<ClaudeRole, number> = {
   vision: 60_000,
   differ: 180_000,
   implementer: 600_000,
+  'implementer-structured': 300_000,
   alignment: 60_000,
   behavioral: 180_000,
   adversarial: 180_000,

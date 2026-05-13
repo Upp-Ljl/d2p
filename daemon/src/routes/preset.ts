@@ -66,10 +66,11 @@ presetRoutes.get('/current', async (c) => {
 });
 
 presetRoutes.post('/override', async (c) => {
-  const session = queries.getCurrentActiveSession();
-  if (!session) {
+  // Allow editing overrides any time the session isn't terminated.
+  const session = queries.getCurrentActiveSession() ?? queries.getLatestSession();
+  if (!session || session.status === 'ENDED') {
     return c.json(
-      { type: 'about:blank', title: 'no active session', status: 409, code: 'INVALID_STATE' },
+      { type: 'about:blank', title: 'no usable session', status: 409, code: 'INVALID_STATE' },
       409,
     );
   }

@@ -9,6 +9,8 @@ import { detectorRoutes } from './routes/detector.js';
 import { presetRoutes } from './routes/preset.js';
 import { loopRoutes } from './routes/loop.js';
 import { gapRoutes } from './routes/gaps.js';
+import { inputRoutes } from './routes/inputs.js';
+import { deployRoutes } from './routes/deploy.js';
 import { runCrashRecovery } from './recovery/startup.js';
 
 const app = new Hono();
@@ -27,6 +29,8 @@ app.route('/api/detector', detectorRoutes);
 app.route('/api/preset', presetRoutes);
 app.route('/api/loop', loopRoutes);
 app.route('/api/gaps', gapRoutes);
+app.route('/api/inputs', inputRoutes);
+app.route('/api/deploy', deployRoutes);
 app.route('/api/log', logRoutes);
 app.route('/api', healthRoutes);
 

@@ -3,6 +3,8 @@ import { Button } from '../components/Button.js';
 import { GapList } from '../components/GapList.js';
 import { RunLog } from '../components/RunLog.js';
 import { SidePanel } from '../components/SidePanel.js';
+import { ArchitecturalAlert } from '../components/ArchitecturalAlert.js';
+import { PresetOverrideEditor } from '../components/PresetOverrideEditor.js';
 
 export function Workspace() {
   const session = useStore((s) => s.session);
@@ -42,6 +44,11 @@ export function Workspace() {
         </div>
       </header>
 
+      {isPaused && (
+        <div className="px-6 pt-3">
+          <ArchitecturalAlert />
+        </div>
+      )}
       <div className="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
         <div className="col-span-3 overflow-hidden">
           <GapList />
@@ -49,8 +56,14 @@ export function Workspace() {
         <div className="col-span-6 overflow-hidden">
           <RunLog />
         </div>
-        <div className="col-span-3 overflow-y-auto">
+        <div className="col-span-3 overflow-y-auto space-y-4">
           <SidePanel />
+          {isPaused && (
+            <div className="bg-white rounded border p-3">
+              <div className="text-sm font-medium mb-2">调整验收清单</div>
+              <PresetOverrideEditor />
+            </div>
+          )}
         </div>
       </div>
     </div>

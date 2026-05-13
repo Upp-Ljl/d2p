@@ -111,18 +111,48 @@ export async function main(argv: string[]): Promise<void> {
 
   program
     .command('install-service')
-    .description('install daemon as a system service (not implemented in MVP-0)')
-    .action(() => {
-      console.error('not implemented in MVP-0. run `d2p start` manually for now.');
-      process.exit(2);
+    .description('generate installer for systemd / launchd / Windows Service')
+    .action(async () => {
+      const candidate = new URL('../../daemon/dist/service/install.js', import.meta.url).href;
+      interface InstallMod {
+        generateInstaller: () => Promise<{
+          platform: string;
+          files: { path: string }[];
+          nextSteps: string[];
+        }>;
+      }
+      let mod: InstallMod | null = null;
+      try {
+        mod = (await import(candidate)) as InstallMod;
+      } catch (e) {
+        console.error('daemon dist not built. Run `npm run build` first.');
+        console.error('detail:', (e as Error).message);
+        process.exit(1);
+      }
+      if (!mod) process.exit(1);
+      const artifacts = await mod.generateInstaller();
+      console.log(`platform: ${artifacts.platform}`);
+      console.log('files written:');
+      for (const f of artifacts.files) console.log('  ' + f.path);
+      console.log('');
+      console.log('next steps:');
+      for (const step of artifacts.nextSteps) console.log('  ' + step);
     });
 
   program
     .command('uninstall-service')
-    .description('uninstall daemon system service (not implemented in MVP-0)')
+    .description('print uninstall steps for the current platform')
     .action(() => {
-      console.error('not implemented in MVP-0.');
-      process.exit(2);
+      const plat = process.platform;
+      if (plat === 'win32') {
+        console.log('Run as Administrator: %USERPROFILE%\\.d2p\\service\\uninstall.cmd');
+      } else if (plat === 'darwin') {
+        console.log('launchctl bootout gui/$(id -u)/local.d2p-daemon.plist');
+        console.log('rm ~/Library/LaunchAgents/local.d2p-daemon.plist');
+      } else {
+        console.log('systemctl --user disable --now d2p-daemon');
+        console.log('rm ~/.config/systemd/user/d2p-daemon.service');
+      }
     });
 
   await program.parseAsync(argv);

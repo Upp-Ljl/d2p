@@ -109,6 +109,26 @@ export const api = {
 
   recentEvents: (limit = 200) =>
     jsonFetch<{ events: SseEnvelope[]; hasMore: boolean }>(`/api/log/events?limit=${limit}`),
+
+  listInputs: () =>
+    jsonFetch<{ inputs: { name: string; size: number; modifiedAt: number }[] }>('/api/inputs'),
+  saveInput: (name: string, body: string) =>
+    jsonFetch<{ ok: true; path: string }>('/api/inputs', {
+      method: 'POST',
+      body: JSON.stringify({ name, body }),
+    }),
+
+  deployTargets: () =>
+    jsonFetch<{
+      targets: {
+        id: string;
+        name: string;
+        confidence: number;
+        evidence: string[];
+        recommendedCommand: string;
+        docsUrl: string;
+      }[];
+    }>('/api/deploy/targets'),
 };
 
 /**

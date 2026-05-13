@@ -18,14 +18,26 @@ import {
 import { readCheckCommands, runStaticGate, type CheckCommands } from '../static-gate/check.js';
 import { runDiffer } from '../agents/differ.js';
 import { runImplementer } from '../agents/implementer.js';
-import { runAlignment, runBehavioral, runAdversarial } from '../agents/reviewers.js';
+import {
+  runAlignment,
+  runBehavioral,
+  runAdversarial,
+  runCrossEngineCheck,
+} from '../agents/reviewers.js';
 import { runDoneCheck } from '../agents/done-check.js';
 import { runRepoSummary, repoSummaryToText } from '../agents/repo-summary.js';
 import { readPreset, readOverrides, applyOverridesToStatus } from '../preset/loader.js';
 import { stringify as yamlStringify } from 'yaml';
+import { startWatching, stopWatching, consumeDirty } from '../watcher/vision-watcher.js';
 
-const MAX_ITERATIONS = 200;
-const MAX_DIFFER_PASSES = 8;
+// MAX_ITERATIONS is a catastrophic safety net only — the loop is intended
+// (per ABCD #D, "持续陪跑无硬终点") to keep going until either (a) preset +
+// vision dual-green, (b) the user pauses, or (c) the differ stops producing
+// new actionable gaps. We do NOT cap differ passes — instead we detect
+// stuck loops (no new slugs across consecutive empty-differ rounds) and
+// pause for the user to decide.
+const MAX_ITERATIONS = 500;
+const STUCK_THRESHOLD = 2; // empty-differ rounds in a row → pause
 
 export interface LoopDeps {
   queries: Queries;
@@ -378,9 +390,62 @@ async function processGap(ctx: LoopCtx, gap: Gap): Promise<void> {
       return;
     }
 
-    // ─── Adversarial (high-sensitivity only) ─────────────────────────
+    // ─── Cross-engine second pass (high-sensitivity only) ────────────
     const isHighSens =
       HIGH_SENSITIVITY_CATEGORIES.has(gap.category) || behav.confidence < 0.85;
+    let finalBehav = behav;
+    if (isHighSens) {
+      const second = await runCrossEngineCheck(q, session.id, fix.id, {
+        gap,
+        visionMd,
+        fullDiff,
+        staticGateOutput: gate.excerpt,
+        implementerResiduals: impl.residualRisks.join('\n'),
+      }, behav);
+      if (second && 'error' in second) {
+        emit(q, session.id, 'ERROR', { phase: 'cross-engine', message: second.error }, 'warn');
+      } else if (second) {
+        // disagreement → forced rollback
+        q.insertReview({
+          fixId: fix.id,
+          kind: 'behavioral',
+          model: 'sonnet',
+          verdict: second.verdict,
+          hints: second.hints,
+          reasonCode: second.reasonCode,
+          difficulty: second.difficulty,
+          splitInto: second.splitInto,
+          rawJson: JSON.stringify(second),
+        });
+        emit(q, session.id, 'REVIEW_VERDICT', {
+          verdict: second.verdict,
+          reasonCode: second.reasonCode,
+          confidence: second.confidence,
+          crossEngineDisagreement: true,
+        });
+        finalBehav = second;
+        // Treat as RETRY/ROLLBACK path
+        q.transitionFix(fix.id, 'BEHAVIORAL_FAILED', {
+          reviewerVerdict: second.verdict,
+          reasonCode: second.reasonCode,
+        });
+        q.transitionFix(fix.id, 'DROPPED');
+        await dropFix(demoPath, gap.slug);
+        retryHints = second.hints.length ? second.hints : [second.rationale];
+        if (attempt >= kBudget) {
+          q.transitionGap(gap.id, 'NEED_HUMAN');
+          emit(q, session.id, 'GAP_ESCALATED', {
+            reason: 'CROSS_ENGINE_DISAGREEMENT',
+            kBudget,
+            attempt,
+          });
+          return;
+        }
+        continue;
+      }
+      // both reviewers agreed — fall through to adversarial
+    }
+    void finalBehav;
     if (isHighSens) {
       q.transitionFix(fix.id, 'ADVERSARIAL_RUNNING');
       const adv = await runAdversarial(q, session.id, fix.id, gap, fullDiff, gate.excerpt);
@@ -476,8 +541,9 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
   }
 
   emit(q, session.id, 'LOOP_STARTED', {});
+  startWatching(q, session.id, demoPath);
 
-  const visionMd = await loadVisionMd(session, demoPath);
+  let visionMd = await loadVisionMd(session, demoPath);
   const inferredChecks: CheckCommands = deps.inferredChecks ?? (await readCheckCommands(demoPath, {
     build: 'npm run build',
     test: 'npm test',
@@ -492,12 +558,21 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
     inferredChecks,
   };
 
-  let differPasses = 0;
+  let emptyDifferStreak = 0;
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     if (loopController.pauseRequested()) {
       q.transitionSession(session.id, 'PAUSED');
       emit(q, session.id, 'LOOP_PAUSED', { reason: 'user_request' });
+      stopWatching(session.id);
       return;
+    }
+
+    // Vision/preset edits on disk reset the stuck counter and force a re-diff.
+    if (consumeDirty(session.id)) {
+      emptyDifferStreak = 0;
+      visionMd = await loadVisionMd(session, demoPath);
+      ctx.visionMd = visionMd;
+      emit(q, session.id, 'LOOP_RESUMED', { reason: 'watcher_dirty' });
     }
 
     const head = q.pickHeadGap(session.id);
@@ -508,17 +583,12 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
 
     // No pending gap. Run differ FIRST so preset_status and gaps refresh, THEN
     // evaluate done-check against current state.
-    if (differPasses >= MAX_DIFFER_PASSES) {
-      q.transitionSession(session.id, 'PAUSED');
-      emit(q, session.id, 'LOOP_PAUSED', { reason: 'differ_passes_exhausted', differPasses }, 'warn');
-      return;
-    }
-
     const { inserted } = await runDifferAndPersist(ctx);
-    differPasses++;
     if (inserted > 0) {
+      emptyDifferStreak = 0;
       continue;
     }
+    emptyDifferStreak++;
 
     // No new gaps from differ. Check done condition with fresh preset_status.
     const presetGreen = q.isPresetAllDone(session.id);
@@ -551,23 +621,30 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
     if (presetGreen && visionVerdict.satisfied) {
       q.transitionSession(session.id, 'DONE');
       emit(q, session.id, 'SESSION_DONE', { rationale: visionVerdict.rationale });
+      stopWatching(session.id);
       return;
     }
 
-    // Differ produced no new work AND not double-green → stuck.
-    q.transitionSession(session.id, 'PAUSED');
-    emit(
-      q,
-      session.id,
-      'LOOP_PAUSED',
-      {
-        reason: 'no_more_gaps_but_not_done',
-        presetGreen,
-        visionSatisfied: visionVerdict.satisfied,
-      },
-      'warn',
-    );
-    return;
+    // Not done. If the differ has produced nothing new for `STUCK_THRESHOLD`
+    // rounds in a row, ask the user (pause). Otherwise loop and try again —
+    // a watcher event or a vision/preset change may unstick us.
+    if (emptyDifferStreak >= STUCK_THRESHOLD) {
+      q.transitionSession(session.id, 'PAUSED');
+      emit(
+        q,
+        session.id,
+        'LOOP_PAUSED',
+        {
+          reason: 'no_more_gaps_but_not_done',
+          presetGreen,
+          visionSatisfied: visionVerdict.satisfied,
+          emptyDifferStreak,
+        },
+        'warn',
+      );
+      stopWatching(session.id);
+      return;
+    }
   }
 
   // Safety: max iterations hit

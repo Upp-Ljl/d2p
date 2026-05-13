@@ -95,6 +95,43 @@ export async function runBehavioral(
   };
 }
 
+/**
+ * Cross-engine second pass. Spawn an independent behavioral reviewer (fresh
+ * context, same prompt) and compare against the first verdict. Used on
+ * high-sensitivity gaps where reviewer disagreement should force a rollback.
+ *
+ * Returns null when the two reviewers agree (proceed with the original
+ * verdict); a forced-ROLLBACK BehavioralOutput when they disagree; or an
+ * error envelope on transport failure.
+ */
+export async function runCrossEngineCheck(
+  q: Queries,
+  sessionId: number,
+  fixId: number,
+  input: BehavioralInput,
+  firstVerdict: BehavioralOutput,
+): Promise<BehavioralOutput | { error: string } | null> {
+  const second = await runBehavioral(q, sessionId, fixId, input);
+  if ('error' in second) return second;
+  if (second.verdict === firstVerdict.verdict && second.reasonCode === firstVerdict.reasonCode) {
+    return null;
+  }
+  const hints = [
+    `Cross-engine disagreement: pass1=${firstVerdict.verdict}/${firstVerdict.reasonCode}, pass2=${second.verdict}/${second.reasonCode}`,
+    ...firstVerdict.hints,
+    ...second.hints,
+  ];
+  return {
+    verdict: 'ROLLBACK' as Verdict,
+    confidence: Math.min(firstVerdict.confidence, second.confidence),
+    reasonCode: 'BUGGY' as ReasonCode,
+    rationale: `Two independent reviewers disagreed; rolled back. P1: ${firstVerdict.rationale} | P2: ${second.rationale}`,
+    hints,
+    splitInto: null,
+    difficulty: Math.max(firstVerdict.difficulty, second.difficulty),
+  };
+}
+
 export async function runAdversarial(
   q: Queries,
   sessionId: number,

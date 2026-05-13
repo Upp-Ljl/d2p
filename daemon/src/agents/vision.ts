@@ -2,6 +2,7 @@ import { runAgent } from './runner.js';
 import { Queries } from '../storage/queries.js';
 import { treeDump } from '../repo-scan/scan.js';
 import { VisionRoundOutputSchema } from '../prompts/schemas.js';
+import { readAllInputsAsText } from '../inputs/store.js';
 import type { VisionRoundOutput } from '../types.js';
 
 export async function runVisionRound(
@@ -13,6 +14,10 @@ export async function runVisionRound(
   roundIndex: number,
 ): Promise<VisionRoundOutput | { error: string }> {
   const tree = await treeDump(repoPath, 2);
+  const extraInputs = await readAllInputsAsText(repoPath);
+  const draftsPayload = extraInputs
+    ? JSON.stringify(drafts) + '\n\nUSER ATTACHED INPUTS:\n' + extraInputs
+    : JSON.stringify(drafts);
 
   const result = await runAgent<unknown>(q, {
     role: 'vision',
@@ -21,7 +26,7 @@ export async function runVisionRound(
     promptInputs: {
       detected_type: detectedType,
       tree_short: tree,
-      drafts_so_far: JSON.stringify(drafts),
+      drafts_so_far: draftsPayload,
       round_index: String(roundIndex),
     },
     thoughtSummary: `vision elicit round ${roundIndex}`,

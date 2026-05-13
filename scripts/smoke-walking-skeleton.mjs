@@ -168,7 +168,32 @@ async function main() {
   const gapDone = events.events.filter((e) => e.kind === 'GAP_DONE');
   if (gapDone.length < 1) fail('expected at least 1 GAP_DONE event');
 
-  // 12. End session and verify session-summary.md is written
+  // 12a. Verify deploy targets endpoint (ABCD #C)
+  const deployRes = await fetchJson(`${DAEMON_URL}/api/deploy/targets`);
+  log('deploy targets:', deployRes.targets.length);
+  // fixture demo has commander dep + no deploy configs, so 0 targets is fine
+
+  // 12b. Save a non-code input + verify it can be listed
+  const inputSaveRes = await fetchJson(`${DAEMON_URL}/api/inputs`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'prd.md', body: '# PRD\n\nSmoke fixture vision PRD.' }),
+  });
+  if (!inputSaveRes.ok) fail('failed to save input');
+  const inputListRes = await fetchJson(`${DAEMON_URL}/api/inputs`);
+  if (inputListRes.inputs.length !== 1) fail(`expected 1 input, got ${inputListRes.inputs.length}`);
+  log('inputs/ POST + GET OK');
+
+  // 12c. Save a preset override (user-defined acceptance, ABCD #B)
+  const ovRes = await fetchJson(`${DAEMON_URL}/api/preset/override`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ overrides: { add: [], remove: [], skip: ['cli-help'] } }),
+  });
+  if (!ovRes.ok) fail('preset/override failed');
+  log('preset/override OK');
+
+  // 13. End session and verify session-summary.md is written
   const endRes = await fetchJson(`${DAEMON_URL}/api/session/end`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -182,7 +207,7 @@ async function main() {
   if (!summary.includes('add-version-flag')) fail('summary should mention the closed gap');
   log('session-summary.md OK (' + summary.length + ' bytes)');
 
-  // 13. Final status should now be ENDED
+  // 14. Final status should now be ENDED
   const after = await fetchJson(`${DAEMON_URL}/api/session/current`);
   if (after.session?.status !== 'ENDED') fail(`expected ENDED, got ${after.session?.status}`);
 

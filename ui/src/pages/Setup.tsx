@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../store.js';
 import { Button } from '../components/Button.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
+import { InputsEditor } from '../components/InputsEditor.js';
+import { PresetOverrideEditor } from '../components/PresetOverrideEditor.js';
 import type { ProjectType } from '../types.js';
 
 const PROJECT_TYPES: ProjectType[] = [
@@ -191,6 +193,28 @@ export function Setup() {
           )}
         </div>
       </section>
+
+      {/* Optional Step 2.5: attach extra inputs */}
+      {typeChosen && !visionFinalized && (
+        <section className="bg-white rounded border">
+          <div className="px-4 py-3 border-b bg-slate-50 font-medium">附加材料（可选）</div>
+          <div className="p-4">
+            <InputsEditor />
+          </div>
+        </section>
+      )}
+
+      {/* Optional Step 2.7: preset overrides (ABCD #B user-defined acceptance) */}
+      {typeChosen && (
+        <section className="bg-white rounded border">
+          <div className="px-4 py-3 border-b bg-slate-50 font-medium">
+            自定义验收清单（可选）
+          </div>
+          <div className="p-4">
+            <PresetOverrideEditor />
+          </div>
+        </section>
+      )}
 
       {/* Step 3 */}
       <section className={`bg-white rounded border ${!readyToStart ? 'opacity-50' : ''}`}>

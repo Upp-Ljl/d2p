@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store.js';
 import { Button } from '../components/Button.js';
+import { DeployTargets } from '../components/DeployTargets.js';
 import type { Gap } from '../types.js';
 
 export function Done() {
@@ -80,6 +81,13 @@ export function Done() {
           ))}
         </Section>
       )}
+
+      <section className="bg-white rounded border">
+        <div className="px-4 py-2 border-b bg-slate-50 font-medium">部署目标（ABCD #C）</div>
+        <div className="p-4">
+          <DeployTargets />
+        </div>
+      </section>
 
       {summaryMdPath && (
         <div className="bg-slate-50 border rounded p-4 text-sm">

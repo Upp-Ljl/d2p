@@ -38,9 +38,20 @@ export async function pushFixBranch(input: {
   if (!SAFE_BRANCH.test(input.branch)) {
     return { ok: false, remoteRef: '', stderr: 'invalid branch name' };
   }
-  const tokenUrl = `https://x-access-token:${input.token}@github.com/${input.owner}/${input.repo}.git`;
+  // If the demo's `origin` already points at github.com, inject the PAT into
+  // the URL so we don't depend on the user's GCM. For local file:// or other
+  // remotes (smoke tests, self-hosted gitea, etc.), push to `origin` as-is.
+  const origin = await readOriginUrl(input.repoPath);
+  let pushTarget: string;
+  if (origin && /github\.com/.test(origin)) {
+    pushTarget = `https://x-access-token:${input.token}@github.com/${input.owner}/${input.repo}.git`;
+  } else if (origin) {
+    pushTarget = 'origin';
+  } else {
+    return { ok: false, remoteRef: '', stderr: 'no origin remote configured' };
+  }
   const r = await git(
-    ['push', '--set-upstream', tokenUrl, `${input.branch}:${input.branch}`],
+    ['push', '--set-upstream', pushTarget, `${input.branch}:${input.branch}`],
     input.repoPath,
     { timeoutMs: 90_000 },
   );

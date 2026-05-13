@@ -34,7 +34,7 @@ export function parseGitHubRemote(remoteUrl: string): ParsedRepo | null {
 export class GitHubClient {
   constructor(
     private readonly token: string,
-    private readonly baseUrl: string = 'https://api.github.com',
+    private readonly baseUrl: string = process.env.D2P_GITHUB_API_BASE ?? 'https://api.github.com',
   ) {}
 
   private headers(): Record<string, string> {

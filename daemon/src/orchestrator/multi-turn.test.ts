@@ -23,11 +23,12 @@ interface FakeStream {
   fireTurn: (text: string | null, opts?: { sessionId?: string; source?: 'hook' | 'result' }) => void;
   writeNextCalls: string[];
   finish: () => void; // emit 'exit' on the child
+  driverOnTurn: (p: TurnDonePayload) => void;
+  attachDriver: (cb: (p: TurnDonePayload) => void) => void;
 }
 
-function makeFakeStream(): FakeStream {
+function makeFakeStream(driver: ReturnType<typeof createMultiTurnDriver>): FakeStream {
   const child = new EventEmitter() as unknown as StreamHandle['child'];
-  // ChildProcess uses removeListener; EventEmitter has it. Good.
   let turnIdx = 0;
   let sessionId: string | null = null;
   const writeNextCalls: string[] = [];
@@ -50,6 +51,10 @@ function makeFakeStream(): FakeStream {
 
   return {
     handle,
+    driverOnTurn: driver.onTurn,
+    attachDriver(_cb) {
+      /* unused for createMultiTurnDriver path */
+    },
     fireTurn(text, opts) {
       if (opts?.sessionId) sessionId = opts.sessionId;
       const payload: TurnDonePayload = {
@@ -61,7 +66,7 @@ function makeFakeStream(): FakeStream {
         stopHookActive: false,
         raw: { fake: true, text },
       };
-      __test__.driverState.onTurn(payload);
+      driver.onTurn(payload);
     },
     writeNextCalls,
     finish() {
@@ -69,10 +74,6 @@ function makeFakeStream(): FakeStream {
     },
   };
 }
-
-beforeEach(() => {
-  __test__.driverState.onTurn = () => undefined;
-});
 
 describe('defaultIsSelfReportedComplete', () => {
   it.each([
@@ -116,8 +117,8 @@ describe('turnDelta (stagnation heuristic)', () => {
 describe('runMultiTurn — full integration with fake stream', () => {
   it('stops when implementer self-reports complete', async () => {
     const db = freshDb();
-    const fake = makeFakeStream();
     const driver = createMultiTurnDriver();
+    const fake = makeFakeStream(driver);
     const p = driver.run(db, fake.handle, { runId: 'r1', role: 'implementer' });
 
     fake.fireTurn('working on turn 0…', { sessionId: 'cc-A' });
@@ -133,8 +134,8 @@ describe('runMultiTurn — full integration with fake stream', () => {
 
   it('stops at turn cap when never self-reports', async () => {
     const db = freshDb();
-    const fake = makeFakeStream();
     const driver = createMultiTurnDriver();
+    const fake = makeFakeStream(driver);
     const p = driver.run(db, fake.handle, { runId: 'r2', role: 'implementer', maxTurns: 3 });
 
     // Fire 3 turns with varied content so stagnation doesn't fire first
@@ -149,8 +150,8 @@ describe('runMultiTurn — full integration with fake stream', () => {
 
   it('stops on stagnation when consecutive turns repeat', async () => {
     const db = freshDb();
-    const fake = makeFakeStream();
     const driver = createMultiTurnDriver();
+    const fake = makeFakeStream(driver);
     const p = driver.run(db, fake.handle, { runId: 'r3', role: 'implementer', maxTurns: 99 });
 
     const same = 'thinking about how to approach this gap. need to write the middleware and tests then verify. '.repeat(5);
@@ -164,8 +165,8 @@ describe('runMultiTurn — full integration with fake stream', () => {
 
   it('stops on AbortSignal mid-stream', async () => {
     const db = freshDb();
-    const fake = makeFakeStream();
     const driver = createMultiTurnDriver();
+    const fake = makeFakeStream(driver);
     const ac = new AbortController();
     const p = driver.run(db, fake.handle, { runId: 'r4', role: 'implementer', signal: ac.signal });
 
@@ -178,8 +179,8 @@ describe('runMultiTurn — full integration with fake stream', () => {
 
   it('stops on stream-error when child exits early', async () => {
     const db = freshDb();
-    const fake = makeFakeStream();
     const driver = createMultiTurnDriver();
+    const fake = makeFakeStream(driver);
     const p = driver.run(db, fake.handle, { runId: 'r5', role: 'implementer' });
 
     fake.fireTurn('turn 0');
@@ -191,8 +192,8 @@ describe('runMultiTurn — full integration with fake stream', () => {
 
   it('persists cc_sessions / cc_turn_events / cc_scratchpad as turns flow', async () => {
     const db = freshDb();
-    const fake = makeFakeStream();
     const driver = createMultiTurnDriver();
+    const fake = makeFakeStream(driver);
     const p = driver.run(db, fake.handle, { runId: 'r6', role: 'implementer' });
 
     fake.fireTurn('first progress note here', { sessionId: 'cc-X' });

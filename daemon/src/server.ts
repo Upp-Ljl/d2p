@@ -14,6 +14,7 @@ import { deployRoutes } from './routes/deploy.js';
 import { configRoutes } from './routes/config.js';
 import { githubRoutes } from './routes/github.js';
 import { skillsRoutes } from './routes/skills.js';
+import { ccStreamRoutes } from './routes/cc-stream.js';
 import { runCrashRecovery } from './recovery/startup.js';
 import { loadConfig } from './config/load.js';
 import { setActiveEngine } from './engines/registry.js';
@@ -40,6 +41,7 @@ app.route('/api/config', configRoutes);
 app.route('/api/github', githubRoutes);
 app.route('/api/skills', skillsRoutes);
 app.route('/api/log', logRoutes);
+app.route('/api/cc-stream', ccStreamRoutes);
 app.route('/api', healthRoutes);
 
 app.onError((err, c) => {

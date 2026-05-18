@@ -149,6 +149,66 @@ export const api = {
  * Subscribe to live log events with auto-reconnect (exponential backoff).
  * Returns a disconnect function.
  */
+/** Open the run-scoped cc multi-turn SSE stream. Receives snapshots of
+ *  cc_turn_events + scratchpad + cc-session for the given runId. Reconnects
+ *  on transient drops the same way as openLogStream. */
+export interface CcStreamSnapshot {
+  runId: string;
+  newEvents: {
+    id: number;
+    turnIdx: number;
+    source: string;
+    payload: unknown;
+    ts: number;
+  }[];
+  scratchpad: { turn: number; ts: number; text: string }[];
+  ccSessionId: string | null;
+  lastTurnIdx: number;
+}
+
+export function openCcStream(
+  runId: string,
+  onSnapshot: (s: CcStreamSnapshot) => void,
+  onConnectChange?: (connected: boolean) => void,
+): () => void {
+  let es: EventSource | null = null;
+  let closed = false;
+  let retryMs = 1000;
+
+  function connect(): void {
+    if (closed) return;
+    es = new EventSource(`/api/cc-stream/${encodeURIComponent(runId)}`);
+    es.addEventListener('open', () => {
+      retryMs = 1000;
+      onConnectChange?.(true);
+    });
+    es.addEventListener('cc-stream', (ev) => {
+      try {
+        const data = JSON.parse((ev as MessageEvent<string>).data) as CcStreamSnapshot;
+        onSnapshot(data);
+      } catch {
+        /* malformed */
+      }
+    });
+    es.addEventListener('error', () => {
+      onConnectChange?.(false);
+      es?.close();
+      if (closed) return;
+      setTimeout(() => {
+        if (closed) return;
+        retryMs = Math.min(retryMs * 2, 15_000);
+        connect();
+      }, retryMs);
+    });
+  }
+
+  connect();
+  return () => {
+    closed = true;
+    es?.close();
+  };
+}
+
 export function openLogStream(
   onEvent: (e: SseEnvelope) => void,
   onConnectChange?: (connected: boolean) => void,

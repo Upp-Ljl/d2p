@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import type Database from 'better-sqlite3';
 import { Queries } from '../storage/queries.js';
 import {
   HIGH_SENSITIVITY_CATEGORIES,
@@ -18,6 +19,9 @@ import {
 import { readCheckCommands, runStaticGate, type CheckCommands } from '../static-gate/check.js';
 import { runDiffer } from '../agents/differ.js';
 import { runImplementer } from '../agents/implementer.js';
+import { runImplementerMultiTurn } from '../agents/implementer-multi-turn.js';
+import { judgeComplexity } from './complexity.js';
+import { currentEngineConfig } from '../engines/registry.js';
 import {
   runAlignment,
   runBehavioral,
@@ -45,6 +49,7 @@ const STUCK_THRESHOLD = 2; // empty-differ rounds in a row → pause
 
 export interface LoopDeps {
   queries: Queries;
+  db: Database.Database;
   inferredChecks?: CheckCommands;
 }
 
@@ -54,6 +59,7 @@ interface LoopCtx {
   demoPath: string;
   visionMd: string;
   inferredChecks: CheckCommands;
+  db: Database.Database;
 }
 
 async function loadVisionMd(session: Session, demoPath: string): Promise<string> {
@@ -143,6 +149,28 @@ async function runDifferAndPersist(ctx: LoopCtx): Promise<{ inserted: number; st
   for (const g of out.gaps) {
     if (seen.has(g.slug)) continue;
     if (overrides.remove.includes(g.slug)) continue;
+    // Tag complexity at insert-time so the orchestrator can route this gap
+    // to the multi-turn driver downstream. Shape it for judgeComplexity by
+    // padding the missing Gap fields with safe defaults — we only read
+    // text + file-list, so the rest doesn't influence the verdict.
+    const complexity = judgeComplexity({
+      id: 0,
+      sessionId: session.id,
+      slug: g.slug,
+      title: g.title,
+      body: g.body,
+      category: g.category,
+      severity: g.severity,
+      source: g.source,
+      suggestedApproach: g.suggestedApproach,
+      expectedFilesChanged: g.expectedFilesChanged,
+      status: 'PENDING',
+      dynamicK: null,
+      parentGapId: null,
+      createdAt: 0,
+      finishedAt: null,
+      complexity: 'simple',
+    });
     q.insertGap({
       sessionId: session.id,
       slug: g.slug,
@@ -154,6 +182,7 @@ async function runDifferAndPersist(ctx: LoopCtx): Promise<{ inserted: number; st
       suggestedApproach: g.suggestedApproach,
       expectedFilesChanged: g.expectedFilesChanged,
       parentGapId: null,
+      complexity,
     });
     inserted++;
   }
@@ -174,7 +203,18 @@ async function runDifferAndPersist(ctx: LoopCtx): Promise<{ inserted: number; st
     inserted++;
   }
 
-  emit(q, session.id, 'DIFF_PRODUCED', { inserted, totalReturned: out.gaps.length });
+  // How many inserted gaps were tagged complex by judgeComplexity? Surfaces
+  // up the SSE feed so the UI can pre-warn users that multi-turn (longer,
+  // pricier) implementer runs are coming.
+  const complexCount = q
+    .listGaps(session.id, ['PENDING'])
+    .filter((g) => g.complexity === 'complex').length;
+
+  emit(q, session.id, 'DIFF_PRODUCED', {
+    inserted,
+    totalReturned: out.gaps.length,
+    complexCount,
+  });
   return { inserted, stuck: inserted === 0 };
 }
 
@@ -205,12 +245,26 @@ async function processGap(ctx: LoopCtx, gap: Gap): Promise<void> {
 
     // ─── Implementer ─────────────────────────────────────────────────
     q.transitionFix(fix.id, 'IMPLEMENTING');
-    const impl = await runImplementer(q, session.id, fix.id, {
-      gap,
-      visionMd,
-      worktreePath: wt,
-      retryHints,
-    });
+    // Multi-turn implementer for complex gaps, but only when the active
+    // engine is claude-cli (the stream-json launcher needs a real cc
+    // binary on PATH). Other engines (openai-compat / anthropic-api) fall
+    // back to single-turn structured-edit — those don't have hook/stream
+    // semantics so multi-turn doesn't apply.
+    const engineKind = currentEngineConfig()?.kind ?? 'claude-cli';
+    const useMultiTurn = gap.complexity === 'complex' && engineKind === 'claude-cli';
+    const impl = useMultiTurn
+      ? await runImplementerMultiTurn(q, ctx.db, session.id, fix.id, {
+          gap,
+          visionMd,
+          worktreePath: wt,
+          retryHints,
+        })
+      : await runImplementer(q, session.id, fix.id, {
+          gap,
+          visionMd,
+          worktreePath: wt,
+          retryHints,
+        });
     if ('error' in impl) {
       q.transitionFix(fix.id, 'DROPPED', { stderrExcerpt: impl.error });
       await dropFix(demoPath, gap.slug);
@@ -643,6 +697,7 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
     demoPath,
     visionMd,
     inferredChecks,
+    db: deps.db,
   };
 
   let emptyDifferStreak = 0;

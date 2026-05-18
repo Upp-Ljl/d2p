@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { queries } from './session.js';
+import { queries, dbHandle } from './session.js';
 import { loopController } from '../orchestrator/controller.js';
 import { runLoop } from '../orchestrator/loop.js';
 
@@ -42,7 +42,7 @@ loopRoutes.post('/start', (c) => {
   }
   loopController.start(session.id, async () => {
     try {
-      await runLoop({ queries }, session.id);
+      await runLoop({ queries, db: dbHandle }, session.id);
     } catch (e) {
       console.error('[d2p loop] crashed:', e);
     }
@@ -85,7 +85,7 @@ loopRoutes.post('/resume', (c) => {
   }
   loopController.start(session.id, async () => {
     try {
-      await runLoop({ queries }, session.id);
+      await runLoop({ queries, db: dbHandle }, session.id);
     } catch (e) {
       console.error('[d2p loop] crashed:', e);
     }

@@ -97,10 +97,11 @@ function turnDelta(curr: string | null, prev: string | null): number {
   return 1 - jaccard;
 }
 
-export function runMultiTurn(
+function runMultiTurnInternal(
   db: Database.Database,
   handle: StreamHandle,
   cfg: MultiTurnDriverConfig,
+  bindOnTurn: (cb: (p: TurnDonePayload) => void) => void,
 ): Promise<MultiTurnDriverResult> {
   const maxTurns = cfg.maxTurns ?? DEFAULT_MAX_TURNS;
   const capMs = cfg.capMs ?? DEFAULT_CAP_MS;
@@ -133,10 +134,7 @@ export function runMultiTurn(
     const onExit = () => finish('stream-error');
     handle.child.once('exit', onExit);
 
-    // The launcher fires opts.onTurnDone for us — but it was set when the
-    // caller spawned the handle. We need a different entry point: the
-    // caller spawns the handle with `onTurnDone: driver.onTurn` (see below).
-    driverState.onTurn = (payload: TurnDonePayload) => {
+    bindOnTurn((payload: TurnDonePayload) => {
       if (settled) return;
       turnsRan += 1;
       sessionId = payload.sessionId ?? sessionId;
@@ -212,44 +210,57 @@ export function runMultiTurn(
       if (!handle.writeNextTurn(next)) {
         finish('stream-error');
       }
-    };
+    });
   });
 }
 
-// The driver has to surface its onTurn callback so the launcher can fire it.
-// We expose a tiny mutable carrier so caller pattern is:
+// Each createMultiTurnDriver() returns an independent closure — safe for
+// concurrent drivers. Pattern:
 //
-//   const driver = createDriver();
+//   const driver = createMultiTurnDriver();
 //   const handle = launchStreamRun({...}, { onTurnDone: driver.onTurn });
 //   const result = await driver.run(db, handle, cfg);
-//
-// We can't bind onTurnDone INSIDE runMultiTurn because the StreamHandle was
-// already spawned before we got it. The carrier sidesteps that ordering
-// without forcing every caller to wire it up by hand.
 
-interface DriverState {
-  onTurn: (p: TurnDonePayload) => void;
-}
-const driverState: DriverState = {
-  onTurn: () => {
-    /* not bound yet — turns received before run() starts are dropped */
-  },
-};
-
-/** Bind-on-spawn helper: pass `.onTurn` as the launcher's onTurnDone, then
- *  call `.run()` after launchStreamRun returns. */
 export function createMultiTurnDriver() {
+  let bound: ((p: TurnDonePayload) => void) | null = null;
+  // Turns that arrive before run() bound a callback queue here so we don't
+  // drop them (e.g. cc finishes turn 0 before the orchestrator's await
+  // schedule has run).
+  const earlyQueue: TurnDonePayload[] = [];
+
+  const onTurn = (p: TurnDonePayload): void => {
+    if (bound) bound(p);
+    else earlyQueue.push(p);
+  };
+
+  const bindOnTurn = (cb: (p: TurnDonePayload) => void) => {
+    bound = cb;
+    while (earlyQueue.length > 0) {
+      const p = earlyQueue.shift()!;
+      cb(p);
+    }
+  };
+
   return {
-    onTurn: (p: TurnDonePayload) => driverState.onTurn(p),
+    onTurn,
     run: (
       db: Database.Database,
       handle: StreamHandle,
       cfg: MultiTurnDriverConfig,
-    ): Promise<MultiTurnDriverResult> => runMultiTurn(db, handle, cfg),
+    ): Promise<MultiTurnDriverResult> => runMultiTurnInternal(db, handle, cfg, bindOnTurn),
   };
+}
+
+/** Convenience for tests/single-instance callers. */
+export function runMultiTurn(
+  db: Database.Database,
+  handle: StreamHandle,
+  cfg: MultiTurnDriverConfig,
+  onTurnHandle: (cb: (p: TurnDonePayload) => void) => void,
+): Promise<MultiTurnDriverResult> {
+  return runMultiTurnInternal(db, handle, cfg, onTurnHandle);
 }
 
 export const __test__ = {
   turnDelta,
-  driverState,
 };

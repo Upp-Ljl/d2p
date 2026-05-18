@@ -13,7 +13,8 @@ import type {
   CostTotals,
   LoopState,
 } from './types.js';
-import { api, openLogStream } from './api.js';
+import { api, openLogStream, openCcStream } from './api.js';
+import type { MultiTurnTurn, MultiTurnPhase, ScratchpadNote } from './types.js';
 
 interface Store {
   // health
@@ -45,6 +46,13 @@ interface Store {
   // multi-turn (complex gap autonomous run)
   multiTurn: MultiTurnState | null;
   setMultiTurn: (s: MultiTurnState | null) => void;
+  openMultiTurnStream: (meta: {
+    runId?: string;
+    gapId?: number;
+    gapTitle?: string;
+    gapSlug?: string;
+  }) => void;
+  closeMultiTurnStream: (reason: string | null) => void;
 
   // end
   summaryMdPath: string | null;
@@ -78,6 +86,72 @@ interface Store {
 
 const emptyCost: CostTotals = { inputTokens: 0, outputTokens: 0, estimatedUsd: 0 };
 
+// Manages the lifecycle of the cc-stream EventSource for the active complex
+// gap. Singleton (only one fix can run at a time).
+const multiTurnStream = {
+  close: () => {
+    /* replaced when start() runs */
+  },
+  start(runId: string, runStartedAt: number) {
+    const close = openCcStream(runId, (snap) => {
+      const cur = useStore.getState().multiTurn;
+      if (!cur || cur.runId !== runId) return; // stale snapshot — already moved on
+
+      // Merge scratchpad (server-authoritative)
+      const scratchpad: ScratchpadNote[] = snap.scratchpad.map((n) => ({
+        turn: n.turn,
+        ts: n.ts,
+        text: n.text,
+      }));
+
+      // Build turns timeline from cc_turn_events: one entry per unique
+      // turn_idx seen. Status:
+      //   - latest turn = 'running' if no later turn yet
+      //   - earlier turns = 'done'
+      const turnIdxs = new Set<number>();
+      let lastAssistantText = cur.lastAssistantText;
+      let lastTurnIdx = cur.currentTurn;
+      for (const ev of snap.newEvents) {
+        turnIdxs.add(ev.turnIdx);
+        if (ev.turnIdx > lastTurnIdx) lastTurnIdx = ev.turnIdx;
+        const p = ev.payload as { last_assistant_message?: string } | null;
+        if (p && typeof p.last_assistant_message === 'string') {
+          lastAssistantText = p.last_assistant_message;
+        }
+      }
+      // Always derive from full scratchpad too (so we don't lose history
+      // on reconnect)
+      for (const n of scratchpad) turnIdxs.add(n.turn);
+
+      const sorted = Array.from(turnIdxs).sort((a, b) => a - b);
+      const turns: MultiTurnTurn[] = sorted.map((idx) => {
+        const note = scratchpad.find((n) => n.turn === idx);
+        const isLast = idx === sorted[sorted.length - 1];
+        return {
+          index: idx,
+          title: note ? note.text.slice(0, 60) : `turn ${idx}`,
+          summary: note ? note.text : '…',
+          status: isLast ? 'running' : 'done',
+          ts: note?.ts ?? Date.now(),
+        };
+      });
+
+      useStore.setState({
+        multiTurn: {
+          ...cur,
+          currentTurn: lastTurnIdx,
+          ccSessionId: snap.ccSessionId,
+          elapsedMs: Date.now() - runStartedAt,
+          lastAssistantText,
+          scratchpad,
+          turns,
+        },
+      });
+    });
+    multiTurnStream.close = close;
+  },
+};
+
 export const useStore = create<Store>((set, get) => ({
   health: null,
   healthError: null,
@@ -97,6 +171,48 @@ export const useStore = create<Store>((set, get) => ({
   sseConnected: false,
   multiTurn: null,
   setMultiTurn: (s) => set({ multiTurn: s }),
+  openMultiTurnStream(meta) {
+    // Close any prior stream first.
+    multiTurnStream.close();
+    if (!meta.runId) return;
+    const runId = meta.runId;
+    const start = Date.now();
+    set({
+      multiTurn: {
+        runId,
+        gapId: meta.gapId ?? 0,
+        gapTitle: meta.gapTitle ?? '',
+        gapSlug: meta.gapSlug ?? '',
+        complexity: 'complex',
+        phase: 'running',
+        currentTurn: 0,
+        maxTurns: 12,
+        ccSessionId: null,
+        elapsedMs: 0,
+        capMs: 6 * 60 * 60 * 1000,
+        tokensIn: 0,
+        tokensOut: 0,
+        estimatedUsd: 0,
+        lastAssistantText: '',
+        scratchpad: [],
+        turns: [],
+        selfReportedComplete: false,
+      },
+    });
+    multiTurnStream.start(runId, start);
+  },
+  closeMultiTurnStream(reason) {
+    multiTurnStream.close();
+    const cur = get().multiTurn;
+    if (!cur) return;
+    const phase: MultiTurnPhase =
+      reason === 'self-reported-complete' || reason === 'turn-cap' || reason === 'time-cap'
+        ? 'finalizing'
+        : reason === 'aborted'
+          ? 'paused'
+          : 'done';
+    set({ multiTurn: { ...cur, phase } });
+  },
   summaryMdPath: null,
   showSettings: false,
   setShowSettings: (b) => set({ showSettings: b }),
@@ -177,6 +293,20 @@ export const useStore = create<Store>((set, get) => ({
       void refresh.refreshSession();
       void refresh.refreshGaps();
       void refresh.refreshLoopState();
+    }
+    if (e.kind === 'AGENT_START' && (e.payload as { mode?: string }).mode === 'multi-turn') {
+      const p = e.payload as {
+        runId?: string;
+        gapId?: number;
+        gapTitle?: string;
+        gapSlug?: string;
+      };
+      if (typeof p.runId === 'string') refresh.openMultiTurnStream(p);
+    }
+    if (e.kind === 'AGENT_END' && (e.payload as { mode?: string }).mode === 'multi-turn') {
+      refresh.closeMultiTurnStream(
+        (e.payload as { stopReason?: string }).stopReason ?? null,
+      );
     }
   },
 

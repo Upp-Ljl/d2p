@@ -17,6 +17,8 @@ export function SettingsC() {
               { id: 'engine', label: 'LLM Engine', count: '1 active', active: true },
               { id: 'presets', label: 'Quick presets', count: '7 available' },
               { id: 'github', label: 'GitHub PR mode', count: 'not configured' },
+              { id: 'skills', label: 'Skills', count: '3 active · 0 project' },
+              { id: 'budget', label: 'Budget cap', count: 'soft $5 · hard $10' },
               { id: 'advanced', label: 'Advanced', count: '' },
             ].map((t) => (
               <div
@@ -94,6 +96,61 @@ export function SettingsC() {
                 <FieldC label="model · sonnet" v="MiniMax-M2" mono />
                 <FieldC label="model · opus" v="MiniMax-M2" mono />
                 <FieldC label="extraHeaders" v="{}" mono dim />
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="card-header flex items-center justify-between">
+                <span>Skills <span className="text-xs text-muted ml-2 font-sans">F5 · agent prompt augmentation</span></span>
+                <span className="text-xs text-muted">3 active</span>
+              </div>
+              <div className="p-5 space-y-2">
+                <p className="text-xs text-muted leading-relaxed">
+                  Drop <code className="bg-paper px-1 rounded">&lt;demo&gt;/.d2p/skills/&lt;role&gt;.md</code> to override the default agent prompt for any role — no TS edits needed.
+                </p>
+                <ul className="divide-y divide-warmline">
+                  {[
+                    { role: 'differ',     name: 'differ-default',     source: 'daemon',  desc: 'compares demo+vision+preset to gap list' },
+                    { role: 'alignment',  name: 'alignment-default',  source: 'daemon',  desc: 'judges whether fix addresses its gap' },
+                    { role: 'behavioral', name: 'behavioral-default', source: 'daemon',  desc: 'runs against tests after static gate' },
+                  ].map((s) => (
+                    <li key={s.role} className="py-2.5 flex items-baseline justify-between text-sm">
+                      <div>
+                        <div className="font-mono text-ink">{s.role}</div>
+                        <div className="text-xs text-muted mt-0.5">{s.desc}</div>
+                      </div>
+                      <div className="flex items-baseline gap-2 text-[10px]">
+                        <span className="font-mono text-muted">{s.name}</span>
+                        <span className={`px-1.5 py-0.5 rounded font-mono ${
+                          s.source === 'project' ? 'bg-coralsoft/50 text-coral' : 'bg-warmline text-muted'
+                        }`}>{s.source}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="card-header flex items-center justify-between">
+                <span>Budget cap <span className="text-xs text-muted ml-2 font-sans">F6 · session ceiling</span></span>
+                <span className="text-xs text-muted">spent $1.27 / $10</span>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <FieldC label="soft cap (USD)" v="5.00" mono />
+                  <FieldC label="hard cap (USD)" v="10.00" mono />
+                  <div>
+                    <label className="label">on soft breach</label>
+                    <select className="input">
+                      <option>downgrade model tier</option>
+                      <option>pause loop</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted leading-relaxed">
+                  At soft cap, sonnet→haiku (or pause if you prefer). At hard cap, in-flight attempts abort and the session emits BUDGET_HARD_BREACH.
+                </p>
               </div>
             </section>
 

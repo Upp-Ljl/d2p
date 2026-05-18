@@ -13,6 +13,7 @@ import { inputRoutes } from './routes/inputs.js';
 import { deployRoutes } from './routes/deploy.js';
 import { configRoutes } from './routes/config.js';
 import { githubRoutes } from './routes/github.js';
+import { skillsRoutes } from './routes/skills.js';
 import { runCrashRecovery } from './recovery/startup.js';
 import { loadConfig } from './config/load.js';
 import { setActiveEngine } from './engines/registry.js';
@@ -37,6 +38,7 @@ app.route('/api/inputs', inputRoutes);
 app.route('/api/deploy', deployRoutes);
 app.route('/api/config', configRoutes);
 app.route('/api/github', githubRoutes);
+app.route('/api/skills', skillsRoutes);
 app.route('/api/log', logRoutes);
 app.route('/api', healthRoutes);
 

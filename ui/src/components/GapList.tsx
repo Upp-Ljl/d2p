@@ -40,7 +40,9 @@ export function GapList() {
   return (
     <div className="card overflow-hidden flex flex-col h-full">
       <div className="card-header flex items-center justify-between">
-        <span>Gap 队列</span>
+        <span title="d2p 找出来的产品级缺口清单（缺什么 / 没做什么）">
+          待办清单 <span className="text-xs font-sans text-muted/60 ml-1">(gaps)</span>
+        </span>
         <span className="text-xs font-sans text-muted">{gaps.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -90,7 +92,7 @@ export function GapList() {
           );
         })}
         {gaps.length === 0 && (
-          <div className="p-6 text-muted text-sm italic font-serif">还没有 gap，等 differ 跑一下…</div>
+          <div className="p-6 text-muted text-sm italic font-serif">还没找出来要补什么，等 d2p 扫一下项目…</div>
         )}
       </div>
     </div>

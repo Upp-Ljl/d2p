@@ -1,0 +1,241 @@
+import { useState, type ReactNode } from 'react';
+import { useStore } from '../store.js';
+import { GapList } from './GapList.js';
+import { RunLog } from './RunLog.js';
+import { PresetChecklistView } from './PresetChecklistView.js';
+import { mockPresetItemsRich } from '../mock/data.js';
+
+// One-line KPI bar that lives between the Workspace header and the main
+// canvas. Each pill is a tappable drawer:
+//   待办: opens GapList
+//   验收清单: opens preset items (SidePanel)
+//   日志: opens RunLog
+// Cost / engine status are read-only summaries.
+
+type DrawerKind = 'gaps' | 'preset' | 'log';
+
+export function StatusStrip() {
+  const session = useStore((s) => s.session);
+  const costTotals = useStore((s) => s.costTotals);
+  const gaps = useStore((s) => s.gaps);
+  const sseConnected = useStore((s) => s.sseConnected);
+
+  const [open, setOpen] = useState<DrawerKind | null>(null);
+
+  // Read the 32-item rich preset (same source PresetChecklistView uses).
+  // Real wire-in will swap this for a store selector once the daemon
+  // surfaces the rich shape.
+  const presetDone = mockPresetItemsRich.filter((i) => i.status === 'done').length;
+  const presetTotal = mockPresetItemsRich.length;
+  const presetPct = presetTotal ? Math.round((presetDone / presetTotal) * 100) : 0;
+
+  const gapsInProgress = gaps.filter((g) => g.status === 'IN_PROGRESS').length;
+  const gapsPending = gaps.filter((g) => g.status === 'PENDING').length;
+  const gapsComplex = gaps.filter((g) => g.complexity === 'complex').length;
+
+  return (
+    <>
+      <div className="border-b border-warmline bg-cream px-6 py-2 flex items-center gap-2 flex-shrink-0 text-xs font-sans">
+        <PresetKpi
+          done={presetDone}
+          total={presetTotal}
+          pct={presetPct}
+          active={open === 'preset'}
+          onClick={() => setOpen(open === 'preset' ? null : 'preset')}
+        />
+
+        <Kpi
+          label="待办"
+          value={`${gapsInProgress + gapsPending}`}
+          hint={
+            gapsInProgress > 0
+              ? `${gapsInProgress} 处理中 · ${gapsPending} 等`
+              : `${gapsPending} 等`
+          }
+          onClick={() => setOpen(open === 'gaps' ? null : 'gaps')}
+          active={open === 'gaps'}
+        >
+          {gapsComplex > 0 && (
+            <span className="bg-rust/15 text-rust px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">
+              {gapsComplex} 复杂
+            </span>
+          )}
+        </Kpi>
+
+        <Kpi
+          label="花费"
+          value={`$${costTotals.estimatedUsd.toFixed(2)}`}
+          hint={`${fmtTokens(costTotals.inputTokens + costTotals.outputTokens)} tokens`}
+        />
+
+        <div className="flex-1" />
+
+        <Kpi
+          label="日志"
+          value="详细事件"
+          onClick={() => setOpen(open === 'log' ? null : 'log')}
+          active={open === 'log'}
+        />
+
+        <StatusDot
+          ok={sseConnected}
+          label={sseConnected ? '在线' : '离线'}
+          hint={session ? `session #${session.id}` : 'no session'}
+        />
+      </div>
+
+      {open === 'gaps' && (
+        <Drawer onClose={() => setOpen(null)} title="待办清单 (gaps)">
+          <div className="h-full overflow-hidden">
+            <GapList />
+          </div>
+        </Drawer>
+      )}
+      {open === 'preset' && (
+        <Drawer onClose={() => setOpen(null)} title="验收清单">
+          <PresetChecklistView />
+        </Drawer>
+      )}
+      {open === 'log' && (
+        <Drawer onClose={() => setOpen(null)} title="详细事件日志">
+          <div className="h-full overflow-hidden">
+            <RunLog />
+          </div>
+        </Drawer>
+      )}
+    </>
+  );
+}
+
+function PresetKpi({
+  done,
+  total,
+  pct,
+  active,
+  onClick,
+}: {
+  done: number;
+  total: number;
+  pct: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      className={`flex items-center gap-3 pl-3 pr-4 py-1.5 rounded-lg transition-colors ${
+        active
+          ? 'bg-sage-50 ring-1 ring-sage-600/30'
+          : 'hover:bg-paper ring-1 ring-transparent'
+      }`}
+      title="点开查看完整验收清单"
+    >
+      <div className="flex flex-col items-start">
+        <span className="text-[10px] uppercase tracking-widest text-muted/60 leading-tight">
+          验收清单
+        </span>
+        <span className="text-sm text-ink leading-tight">
+          <span className="font-medium">{done}</span>
+          <span className="text-muted/50"> / {total}</span>
+        </span>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <span className="font-mono text-xs text-sage-600 font-medium leading-none">{pct}%</span>
+        <div className="w-20 h-1.5 bg-warmline rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-sage-600 to-sage-600/70 transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  hint,
+  onClick,
+  active,
+  children,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  onClick?: () => void;
+  active?: boolean;
+  children?: ReactNode;
+}) {
+  const cls = `flex items-center gap-2 px-3 py-1 rounded transition-colors ${
+    onClick
+      ? active
+        ? 'bg-coral/15 text-coral hover:bg-coral/20'
+        : 'hover:bg-paper text-ink cursor-pointer'
+      : 'text-ink'
+  }`;
+  const inner = (
+    <>
+      <span className="text-[10px] uppercase tracking-wider text-muted/70">{label}</span>
+      <span className="font-mono">{value}</span>
+      {hint && <span className="text-muted/70">· {hint}</span>}
+      {children}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" className={cls} onClick={onClick} aria-expanded={active}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
+}
+
+function StatusDot({ ok, label, hint }: { ok: boolean; label: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2" title={hint}>
+      <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-forest' : 'bg-muted/40'}`} />
+      <span className="text-muted/70">{label}</span>
+    </div>
+  );
+}
+
+function Drawer({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-x-0 top-[105px] bottom-0 bg-ink/30 z-40 flex" onClick={onClose}>
+      <div
+        className="bg-paper border-r border-warmline w-[440px] flex flex-col shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="card-header flex items-center justify-between bg-cream flex-shrink-0">
+          <span>{title}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs text-muted hover:text-ink transition-colors font-sans"
+          >
+            收起 ✕
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}

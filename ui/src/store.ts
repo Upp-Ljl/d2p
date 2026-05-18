@@ -15,6 +15,8 @@ import type {
 } from './types.js';
 import { api, openLogStream, openCcStream } from './api.js';
 import type { MultiTurnTurn, MultiTurnPhase, ScratchpadNote } from './types.js';
+import { mockStoreFor } from './mock/data.js';
+import { startMockMultiTurnStream, mockMultiTurnIdle } from './mock/multiTurn.js';
 
 interface Store {
   // health
@@ -45,6 +47,7 @@ interface Store {
 
   // multi-turn (complex gap autonomous run)
   multiTurn: MultiTurnState | null;
+  multiTurnDemoMode: boolean;
   setMultiTurn: (s: MultiTurnState | null) => void;
   openMultiTurnStream: (meta: {
     runId?: string;
@@ -53,6 +56,15 @@ interface Store {
     gapSlug?: string;
   }) => void;
   closeMultiTurnStream: (reason: string | null) => void;
+  /** Demo only — drives multiTurn with mock data, no daemon/SSE.
+   *  For showing the user what multi-turn looks like in production UI
+   *  before any real complex gap has fired. */
+  startMultiTurnDemo: () => void;
+  stopMultiTurnDemo: () => void;
+  /** Within an active demo, start the multi-turn mock stream. Lets the
+   *  user see the multi-turn fullscreen view on demand instead of being
+   *  thrown into it. */
+  startMultiTurnDemoStream: () => void;
 
   // end
   summaryMdPath: string | null;
@@ -85,6 +97,8 @@ interface Store {
 }
 
 const emptyCost: CostTotals = { inputTokens: 0, outputTokens: 0, estimatedUsd: 0 };
+
+const demoStopHandle: { fn: () => void } = { fn: () => undefined };
 
 // Manages the lifecycle of the cc-stream EventSource for the active complex
 // gap. Singleton (only one fix can run at a time).
@@ -170,6 +184,7 @@ export const useStore = create<Store>((set, get) => ({
   events: [],
   sseConnected: false,
   multiTurn: null,
+  multiTurnDemoMode: false,
   setMultiTurn: (s) => set({ multiTurn: s }),
   openMultiTurnStream(meta) {
     // Close any prior stream first.
@@ -212,6 +227,48 @@ export const useStore = create<Store>((set, get) => ({
           ? 'paused'
           : 'done';
     set({ multiTurn: { ...cur, phase } });
+  },
+  startMultiTurnDemo() {
+    multiTurnStream.close();
+    // Synchronously inject full mock state so the user never sees a blank
+    // Workspace mid-import (race fix — previously dynamic-imported and the
+    // UI flashed empty gap-list / commits / sessions for a frame).
+    const base = mockStoreFor({ status: 'LOOPING' }) as Record<string, unknown> & {
+      session: Session | null;
+    };
+    // Suppress SidePanel's vision-md fetch (would 404 with no daemon).
+    if (base.session) base.session = { ...base.session, visionMdPath: null };
+    set({ ...base, multiTurnDemoMode: true, multiTurn: null });
+  },
+  startMultiTurnDemoStream() {
+    if (!get().multiTurnDemoMode) return;
+    demoStopHandle.fn();
+    useStore.setState({ multiTurn: mockMultiTurnIdle });
+    const stop = startMockMultiTurnStream((s) => {
+      if (!useStore.getState().multiTurnDemoMode) {
+        stop();
+        return;
+      }
+      useStore.setState({ multiTurn: s });
+    });
+    demoStopHandle.fn = stop;
+  },
+  stopMultiTurnDemo() {
+    demoStopHandle.fn();
+    demoStopHandle.fn = () => undefined;
+    set({
+      multiTurnDemoMode: false,
+      multiTurn: null,
+      // Clear all the mock seed state so the user returns to a clean Landing
+      // (real daemon will re-populate via refreshAll on bootstrap).
+      session: null,
+      demo: null,
+      presetStatus: [],
+      gaps: [],
+      events: [],
+      loopState: null,
+      summaryMdPath: null,
+    });
   },
   summaryMdPath: null,
   showSettings: false,

@@ -23,6 +23,7 @@ export function App() {
   const health = useStore((s) => s.health);
   const showSettings = useStore((s) => s.showSettings);
   const setShowSettings = useStore((s) => s.setShowSettings);
+  const demoMode = useStore((s) => s.multiTurnDemoMode);
 
   if (showSettings) {
     return <Settings onClose={() => setShowSettings(false)} />;
@@ -37,7 +38,12 @@ export function App() {
     session && (session.status === 'ENDED' || session.status === 'DONE') && !summaryMdPath;
 
   let body;
-  if (!session || isTerminalAndStale) {
+  if (demoMode) {
+    // multi-turn demo route — preempt normal session routing so the user
+    // can see the Workspace + multi-turn main canvas without spinning up
+    // a real session.
+    body = <Workspace />;
+  } else if (!session || isTerminalAndStale) {
     body = <Landing />;
   } else if (session.status === 'SETUP') {
     body = <Setup />;

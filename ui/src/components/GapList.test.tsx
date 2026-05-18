@@ -32,7 +32,7 @@ beforeEach(() => {
 describe('GapList', () => {
   it('shows empty hint when no gaps', () => {
     render(<GapList />);
-    expect(screen.getByText(/还没有 gap/)).toBeInTheDocument();
+    expect(screen.getByText(/还没找出来要补什么/)).toBeInTheDocument();
   });
 
   it('groups by status', () => {

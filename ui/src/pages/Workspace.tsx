@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../store.js';
 import { Button } from '../components/Button.js';
-import { GapList } from '../components/GapList.js';
-import { RunLog } from '../components/RunLog.js';
-import { SidePanel } from '../components/SidePanel.js';
 import { ArchitecturalAlert } from '../components/ArchitecturalAlert.js';
 import { PresetOverrideEditor } from '../components/PresetOverrideEditor.js';
 import { HealthBadge } from '../components/HealthBadge.js';
 import { MultiTurnPanel, isMultiTurnActive } from '../components/MultiTurnPanel.js';
+import { SessionsBoard } from '../components/SessionsBoard.js';
+import { CommitsTimeline } from '../components/CommitsTimeline.js';
+import { StatusStrip } from '../components/StatusStrip.js';
 
 export function Workspace() {
   const session = useStore((s) => s.session);
@@ -19,6 +19,9 @@ export function Workspace() {
   const endSession = useStore((s) => s.endSession);
 
   const setShowSettings = useStore((s) => s.setShowSettings);
+  const demoMode = useStore((s) => s.multiTurnDemoMode);
+  const startDemoStream = useStore((s) => s.startMultiTurnDemoStream);
+  const stopDemo = useStore((s) => s.stopMultiTurnDemo);
   const isPaused = session?.status === 'PAUSED';
   const isLooping = session?.status === 'LOOPING';
   const isPausing = loopState?.pauseRequested === true && loopState?.isRunning === true;
@@ -57,10 +60,21 @@ export function Workspace() {
               Resume ▶
             </Button>
           )}
+          {demoMode && !showMultiTurnFullscreen && !mtActive && (
+            <Button variant="secondary" onClick={() => startDemoStream()}>
+              试看 multi-turn 主视面 →
+            </Button>
+          )}
+          {demoMode && <Button variant="ghost" onClick={() => stopDemo()}>退出演示</Button>}
           <Button variant="ghost" onClick={() => setShowSettings(true)}>⚙ 设置 / 切引擎</Button>
           <Button variant="ghost" onClick={() => void endSession()}>结束会话</Button>
         </div>
       </header>
+      {demoMode && (
+        <div className="bg-coral/10 border-b border-coral/30 text-coral text-xs font-sans px-6 py-1.5 text-center">
+          演示模式 · multi-turn 是 mock 数据驱动 · 真任务跑起来形态一样 · 点「退出演示」回去
+        </div>
+      )}
 
       {isPaused && (
         <div className="px-6 pt-3">
@@ -72,32 +86,34 @@ export function Workspace() {
           <MultiTurnPanel onBackToGaps={() => setForceShowQueue(true)} />
         </div>
       ) : (
-        <div className="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
-          <div className="col-span-3 overflow-hidden">
-            <GapList />
-            {mtActive && (
-              <button
-                type="button"
-                onClick={() => setForceShowQueue(false)}
-                className="mt-3 w-full text-xs text-coral hover:text-rust transition-colors font-sans"
-              >
-                返回自治视图 →
-              </button>
-            )}
-          </div>
-          <div className="col-span-6 overflow-hidden">
-            <RunLog />
-          </div>
-          <div className="col-span-3 overflow-y-auto space-y-4">
-            <SidePanel />
-            {isPaused && (
-              <div className="card p-4">
-                <div className="text-sm font-medium mb-2">调整验收清单</div>
-                <PresetOverrideEditor />
+        <>
+          <StatusStrip />
+          <div className="flex-1 grid grid-cols-12 gap-8 px-8 py-7 overflow-hidden">
+            <div className="col-span-7 overflow-hidden flex flex-col gap-3">
+              <div className="flex-1 overflow-hidden">
+                <SessionsBoard />
               </div>
-            )}
+              {mtActive && (
+                <button
+                  type="button"
+                  onClick={() => setForceShowQueue(false)}
+                  className="text-xs text-coral hover:text-rust transition-colors font-sans"
+                >
+                  返回自治视图 →
+                </button>
+              )}
+            </div>
+            <div className="col-span-5 overflow-hidden">
+              <CommitsTimeline />
+              {isPaused && (
+                <div className="card p-4 mt-4">
+                  <div className="text-sm font-medium mb-2">调整验收清单</div>
+                  <PresetOverrideEditor />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

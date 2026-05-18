@@ -5,6 +5,7 @@ import { ErrorBanner } from '../components/ErrorBanner.js';
 
 export function Landing() {
   const startSession = useStore((s) => s.startSession);
+  const startDemo = useStore((s) => s.startMultiTurnDemo);
   const healthError = useStore((s) => s.healthError);
   const health = useStore((s) => s.health);
   const [path, setPath] = useState('');
@@ -97,6 +98,22 @@ export function Landing() {
               loadingText="新建 session 中…"
             >
               Start session →
+            </Button>
+          </div>
+        </section>
+
+        <section className="mt-8 card p-5 bg-coralsoft/30 border-coral/30">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="text-sm font-medium text-ink mb-1">还没启动 demo？先看效果</div>
+              <p className="text-xs text-muted leading-relaxed">
+                跑一段 mock 数据演示：复杂 gap 走 multi-turn 自治时
+                Workspace 主视面长啥样、turn 时间轴怎么滚、自治完成怎么收尾。
+                <span className="text-muted/60">（不连 daemon，不烧 token）</span>
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => startDemo()}>
+              试看 multi-turn →
             </Button>
           </div>
         </section>

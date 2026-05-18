@@ -17,6 +17,11 @@ import type {
   ReasonCode,
   SplitGapSpec,
   VisionDraft,
+  AgentSessionAgg,
+  AgentRoleStatus,
+  MergedCommitRow,
+  PresetRichRow,
+  ClaudeRole,
 } from '../types.js';
 import { asAbsPath } from '../util/path.js';
 import {
@@ -682,6 +687,258 @@ export class Queries {
       );
   }
 
+  // ─── aggregation queries (Worker-A real-backend wire) ────────────────────
+
+  /**
+   * Roll log_events up by ClaudeRole to produce the SessionsBoard agent rows.
+   * Heuristic: last AGENT_START with a role field determines currentGapSlug
+   * if the gap is still IN_PROGRESS. AGENT_END / REVIEW_VERDICT / MERGED /
+   * GAP_DONE => idle/done. No recent event (>5 min) => stale.
+   */
+  aggregateSessionsByRole(sessionId: number): AgentSessionAgg[] {
+    interface EventRow {
+      id: number;
+      ts: number;
+      kind: string;
+      payload_json: string;
+    }
+
+    const roles: ClaudeRole[] = [
+      'differ',
+      'implementer',
+      'alignment',
+      'behavioral',
+      'adversarial',
+      'done-check',
+      'repo-summary',
+    ];
+
+    // Fetch all log_events for this session ordered ascending
+    const events = (
+      this.db
+        .prepare(
+          `SELECT id, ts, kind, payload_json FROM log_events
+           WHERE session_id = ? ORDER BY ts ASC`,
+        )
+        .all(sessionId) as EventRow[]
+    ).map((r) => ({
+      id: r.id,
+      ts: r.ts,
+      kind: r.kind,
+      payload: JSON.parse(r.payload_json) as Record<string, unknown>,
+    }));
+
+    const now = Date.now();
+    const STALE_MS = 5 * 60_000; // 5 minutes
+
+    // Build per-role state by scanning events
+    const state = new Map<
+      ClaudeRole,
+      {
+        lastActivityTs: number | null;
+        callsThisSession: number;
+        turnCountThisGap: number;
+        currentGapSlug: string | null;
+        status: AgentRoleStatus;
+        lastTurnSummary: string | null;
+      }
+    >();
+
+    for (const role of roles) {
+      state.set(role, {
+        lastActivityTs: null,
+        callsThisSession: 0,
+        turnCountThisGap: 0,
+        currentGapSlug: null,
+        status: 'idle',
+        lastTurnSummary: null,
+      });
+    }
+
+    for (const ev of events) {
+      const role = (ev.payload['role'] as ClaudeRole | undefined);
+
+      if (ev.kind === 'AGENT_START' && role && state.has(role)) {
+        const s = state.get(role)!;
+        s.callsThisSession += 1;
+        s.lastActivityTs = ev.ts;
+        s.status = 'working';
+        s.currentGapSlug = (ev.payload['gapSlug'] as string | undefined) ?? s.currentGapSlug;
+        const thought = ev.payload['thought'] as string | undefined;
+        s.lastTurnSummary = thought ?? `${role} agent started`;
+      } else if (ev.kind === 'AGENT_THOUGHT' && role && state.has(role)) {
+        const s = state.get(role)!;
+        s.lastActivityTs = ev.ts;
+        s.turnCountThisGap += 1;
+        const thought = ev.payload['text'] as string | undefined;
+        if (thought) s.lastTurnSummary = thought.slice(0, 200);
+      } else if (ev.kind === 'AGENT_END' && role && state.has(role)) {
+        const s = state.get(role)!;
+        s.lastActivityTs = ev.ts;
+        s.status = 'idle';
+      } else if (ev.kind === 'REVIEW_VERDICT' && role && state.has(role)) {
+        const s = state.get(role)!;
+        s.lastActivityTs = ev.ts;
+        s.status = 'idle';
+        const verdict = ev.payload['verdict'] as string | undefined;
+        if (verdict) s.lastTurnSummary = `verdict: ${verdict}`;
+      } else if (ev.kind === 'GAP_DONE' || ev.kind === 'GAP_SKIPPED') {
+        // Reset all roles' turnCountThisGap on gap completion
+        for (const s of state.values()) {
+          s.turnCountThisGap = 0;
+          if (s.currentGapSlug === (ev.payload['slug'] as string | undefined)) {
+            s.currentGapSlug = null;
+            if (s.status === 'working') s.status = 'idle';
+          }
+        }
+      } else if (ev.kind === 'SESSION_DONE') {
+        for (const s of state.values()) {
+          s.status = 'done';
+        }
+      } else if (ev.kind === 'GAP_PICKED') {
+        const slug = ev.payload['slug'] as string | undefined;
+        if (slug) {
+          // Mark the implementer's current gap
+          const impl = state.get('implementer');
+          if (impl) impl.currentGapSlug = slug;
+        }
+      } else if (ev.kind === 'MERGED') {
+        // After a merge, mark implementer idle
+        const impl = state.get('implementer');
+        if (impl) {
+          impl.lastActivityTs = ev.ts;
+          impl.status = 'idle';
+        }
+      }
+    }
+
+    // Lookup gap titles for current slugs
+    const slugTitleCache = new Map<string, string>();
+    for (const s of state.values()) {
+      if (s.currentGapSlug && !slugTitleCache.has(s.currentGapSlug)) {
+        const gapRow = this.db
+          .prepare('SELECT title FROM gaps WHERE session_id = ? AND slug = ?')
+          .get(sessionId, s.currentGapSlug) as { title: string } | undefined;
+        if (gapRow) slugTitleCache.set(s.currentGapSlug, gapRow.title);
+      }
+    }
+
+    return roles.map((role) => {
+      const s = state.get(role)!;
+      // Stale check: working but no activity for >5 min
+      let status = s.status;
+      if (status === 'working' && s.lastActivityTs !== null && now - s.lastActivityTs > STALE_MS) {
+        status = 'stale';
+      }
+      const currentGapTitle = s.currentGapSlug ? (slugTitleCache.get(s.currentGapSlug) ?? null) : null;
+      return {
+        role,
+        status,
+        currentGapSlug: s.currentGapSlug,
+        currentGapTitle,
+        lastTurnSummary: s.lastTurnSummary,
+        turnCountThisGap: s.turnCountThisGap,
+        callsThisSession: s.callsThisSession,
+        lastActivityTs: s.lastActivityTs,
+      };
+    });
+  }
+
+  /**
+   * List merged commits for CommitsTimeline. JOINs fixes + gaps + reviews.
+   * insertions/deletions are always 0 (git-diff parsing is out of scope).
+   */
+  listMergedCommits(sessionId: number, limit = 50): MergedCommitRow[] {
+    interface FixRow {
+      fix_id: number;
+      commit_sha: string | null;
+      files_changed: string | null;
+      finished_at: number | null;
+      created_at: number;
+      gap_slug: string;
+      gap_title: string;
+    }
+    const clampedLimit = Math.min(limit, 200);
+
+    const fixes = this.db
+      .prepare(
+        `SELECT f.id AS fix_id, f.commit_sha, f.files_changed, f.finished_at, f.created_at,
+                g.slug AS gap_slug, g.title AS gap_title
+         FROM fixes f
+         JOIN gaps g ON g.id = f.gap_id
+         WHERE g.session_id = ? AND f.status = 'MERGED'
+         ORDER BY COALESCE(f.finished_at, f.created_at) DESC
+         LIMIT ?`,
+      )
+      .all(sessionId, clampedLimit) as FixRow[];
+
+    return fixes.map((fix) => {
+      const filesArr = fix.files_changed ? (JSON.parse(fix.files_changed) as string[]) : [];
+
+      // Fetch reviews for this fix
+      interface ReviewRow {
+        kind: ReviewKind;
+        verdict: string | null;
+        difficulty: number | null;
+      }
+      const reviews = this.db
+        .prepare(
+          `SELECT kind, verdict, difficulty FROM reviews WHERE fix_id = ?`,
+        )
+        .all(fix.fix_id) as ReviewRow[];
+
+      const sha = fix.commit_sha;
+      const shortSha = sha ? sha.slice(0, 8) : null;
+      const ts = fix.finished_at ?? fix.created_at;
+
+      return {
+        sha,
+        shortSha,
+        ts,
+        gapSlug: fix.gap_slug,
+        gapTitle: fix.gap_title,
+        filesChanged: filesArr.length,
+        insertions: 0,
+        deletions: 0,
+        message: fix.gap_title,
+        reviewVerdicts: reviews.map((r) => ({
+          kind: r.kind as ReviewKind,
+          verdict: r.verdict as Verdict | null,
+          score: r.difficulty,
+        })),
+      };
+    });
+  }
+
+  /**
+   * Produce the 32-item rich preset checklist for the session.
+   * Reads latest preset_status_history snapshot and merges with PRESET_META_32.
+   * Items not in preset_status_history default to status='missing'.
+   */
+  listPresetRich(sessionId: number): PresetRichRow[] {
+    const latest = this.latestPresetStatus(sessionId);
+
+    // Build lookup by item id
+    const statusMap = new Map<string, { status: 'done' | 'partial' | 'missing'; note: string | null }>();
+    for (const item of latest) {
+      statusMap.set(item.item, { status: item.status, note: item.note });
+    }
+
+    return PRESET_META_32.map((meta) => {
+      const stored = statusMap.get(meta.id);
+      return {
+        id: meta.id,
+        label: meta.label,
+        severity: meta.severity,
+        mechanism: meta.mechanism,
+        source: meta.source,
+        appliesTo: meta.appliesTo,
+        status: stored?.status ?? 'missing',
+        note: stored?.note ?? null,
+      };
+    });
+  }
+
   /** F4 — per-(role × engine) rollup for Mission Control attribution panel. */
   costAttribution(
     sessionId: number,
@@ -736,3 +993,48 @@ export interface CostBucket {
   cacheWriteTokens: number;
   estimatedUsd: number;
 }
+
+// ─── 32-item preset meta (source of truth: ui/src/mock/data.ts mockPresetItemsRich) ──
+interface PresetMeta {
+  id: string;
+  label: string;
+  severity: 'P1' | 'P2' | 'P3';
+  mechanism: 'static-grep' | 'file-exists' | 'test-execution' | 'cross-file-cohesion' | 'llm-judgment';
+  source: string;
+  appliesTo: string[];
+}
+
+export const PRESET_META_32: PresetMeta[] = [
+  { id: 'build-typecheck',         label: 'Typecheck / compile passes clean',          severity: 'P1', mechanism: 'test-execution',      source: 'base',           appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'build-reproducible',      label: 'Build command exits 0 on clean checkout',   severity: 'P1', mechanism: 'test-execution',      source: '12F-V',          appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'test-runner-present',     label: 'Test runner configured + ≥1 test file',     severity: 'P1', mechanism: 'file-exists',         source: 'base',           appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'test-happy-path-passes',  label: 'npm test exits 0',                           severity: 'P1', mechanism: 'test-execution',      source: 'base',           appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'test-edge-cases',         label: '≥1 negative test per public function',      severity: 'P2', mechanism: 'llm-judgment',        source: 'base',           appliesTo: ['L','A','C','ML'] },
+  { id: 'readme-quickstart',       label: 'README has fenced install + run block',     severity: 'P1', mechanism: 'static-grep',         source: 'base',           appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'license-file',            label: 'LICENSE present + SPDX-recognized',         severity: 'P1', mechanism: 'file-exists',         source: 'OpenSSF',        appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'env-example',             label: '.env.example covers every env var read',    severity: 'P1', mechanism: 'cross-file-cohesion', source: '12F-III',        appliesTo: ['W','A'] },
+  { id: 'no-hardcoded-secrets',    label: 'No hardcoded API keys / passwords',         severity: 'P1', mechanism: 'static-grep',         source: 'OWASP-A02:2025', appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'lockfile-present',        label: 'Dependency lockfile committed',             severity: 'P1', mechanism: 'file-exists',         source: 'OpenSSF',        appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'deps-no-high-vuln',       label: 'npm audit / pip-audit · 0 high',            severity: 'P1', mechanism: 'test-execution',      source: 'OWASP-A03:2025', appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'port-from-env',           label: 'Server reads PORT from env',                severity: 'P1', mechanism: 'static-grep',         source: '12F-VII',        appliesTo: ['W','A'] },
+  { id: 'sigterm-handler',         label: 'Graceful shutdown on SIGTERM',              severity: 'P2', mechanism: 'static-grep',         source: '12F-IX',         appliesTo: ['W','A','D'] },
+  { id: 'stdout-logging',          label: 'Logs go to stdout (not files)',             severity: 'P2', mechanism: 'static-grep',         source: '12F-XI',         appliesTo: ['W','A','C'] },
+  { id: 'health-endpoint',         label: 'GET /health returns 200',                   severity: 'P1', mechanism: 'static-grep',         source: 'SRE',            appliesTo: ['W','A'] },
+  { id: 'structured-logs',         label: 'Logs parseable JSON / carry request id',    severity: 'P2', mechanism: 'cross-file-cohesion', source: 'SRE',            appliesTo: ['W','A'] },
+  { id: 'error-handler-present',   label: 'Top-level error handler / boundary',        severity: 'P2', mechanism: 'llm-judgment',        source: 'OWASP-A10:2025', appliesTo: ['W','A','D'] },
+  { id: 'auth-on-mutating-routes', label: 'Non-GET routes covered by auth',            severity: 'P1', mechanism: 'llm-judgment',        source: 'OWASP-A01:2025', appliesTo: ['W','A'] },
+  { id: 'password-hash-strong',    label: 'bcrypt / argon2 / scrypt only',             severity: 'P1', mechanism: 'static-grep',         source: 'OWASP-A04:2025', appliesTo: ['W','A'] },
+  { id: 'https-only-prod',         label: 'No http:// in prod config · cookies Secure', severity: 'P1', mechanism: 'static-grep',        source: 'OWASP-A02:2025', appliesTo: ['W','A'] },
+  { id: 'rate-limit-public',       label: 'Public routes wrapped in rate-limit',       severity: 'P2', mechanism: 'static-grep',         source: 'base',           appliesTo: ['W','A'] },
+  { id: 'sql-parameterized',       label: 'No string-concat into SQL execute',         severity: 'P1', mechanism: 'static-grep',         source: 'OWASP-A05:2025', appliesTo: ['W','A','ML'] },
+  { id: 'cors-not-wildcard',       label: 'No Origin:* with credentials',              severity: 'P1', mechanism: 'static-grep',         source: 'OWASP-A02:2025', appliesTo: ['W','A'] },
+  { id: 'a11y-axe-clean',          label: 'axe-core · 0 serious violations',           severity: 'P1', mechanism: 'test-execution',      source: 'WebAIM',         appliesTo: ['W','S'] },
+  { id: 'viewport-meta',           label: '<meta viewport> present',                   severity: 'P2', mechanism: 'static-grep',         source: 'base',           appliesTo: ['W','S','M'] },
+  { id: 'error-boundary',          label: 'Root-level error boundary component',       severity: 'P2', mechanism: 'static-grep',         source: 'base',           appliesTo: ['W','S'] },
+  { id: 'ci-pipeline',             label: 'CI runs test + build on PR',                severity: 'P2', mechanism: 'file-exists',         source: 'OpenSSF',        appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'ci-token-perms',          label: 'workflows set permissions explicitly',      severity: 'P2', mechanism: 'static-grep',         source: 'OpenSSF',        appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'deploy-config',           label: 'Target deploy config valid',                severity: 'P1', mechanism: 'file-exists',         source: 'Vercel/Fly',     appliesTo: ['W','A','L'] },
+  { id: 'package-publishable',     label: 'npm pack / python -m build succeeds',       severity: 'P1', mechanism: 'test-execution',      source: 'npm/PyPI',       appliesTo: ['L'] },
+  { id: 'binary-not-committed',    label: 'No *.exe / *.dll outside dist/',            severity: 'P3', mechanism: 'static-grep',         source: 'OpenSSF',        appliesTo: ['W','A','C','L','S','M','D','ML'] },
+  { id: 'vision-verdict',          label: 'Product matches user vision',               severity: 'P1', mechanism: 'llm-judgment',        source: 'd2p-native',     appliesTo: ['W','A','C','L','S','M','D','ML'] },
+];

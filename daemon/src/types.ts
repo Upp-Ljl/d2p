@@ -555,3 +555,67 @@ export interface DoctorResponse {
   ok: boolean;
   checks: DoctorCheck[];
 }
+
+// ─── Aggregation DTOs (Worker-A real-backend wire) ─────────────────────────
+
+/** Status of one agent role as derived heuristically from log_events. */
+export type AgentRoleStatus = 'working' | 'idle' | 'blocked' | 'stale' | 'done';
+
+/** One row in the per-role agent board for the current session. */
+export interface AgentSessionAgg {
+  role: ClaudeRole;
+  status: AgentRoleStatus;
+  /** Slug of the gap currently IN_PROGRESS for this role, or null. */
+  currentGapSlug: string | null;
+  /** Human title of the current gap, or null. */
+  currentGapTitle: string | null;
+  /** Last assistant text excerpt or latest event payload preview. */
+  lastTurnSummary: string | null;
+  /** Number of agent turns logged for the current gap (this session). */
+  turnCountThisGap: number;
+  /** Total AGENT_START events across the whole session for this role. */
+  callsThisSession: number;
+  /** Timestamp (ms) of last log_event for this role, or null. */
+  lastActivityTs: number | null;
+}
+
+/** One merged commit row for CommitsTimeline. */
+export interface MergedCommitRow {
+  sha: string | null;
+  shortSha: string | null;
+  /** Unix ms — fix.finished_at (merged) if available, else fix.created_at. */
+  ts: number;
+  gapSlug: string;
+  gapTitle: string;
+  /** Number of files changed (parsed from files_changed JSON array). */
+  filesChanged: number;
+  /** Always 0 until git-diff parsing is implemented. */
+  insertions: number;
+  /** Always 0 until git-diff parsing is implemented. */
+  deletions: number;
+  /** commit_message from the gap title if not stored on fix. */
+  message: string;
+  /** Verdicts from reviews linked to this fix. */
+  reviewVerdicts: { kind: ReviewKind; verdict: Verdict | null; score: number | null }[];
+}
+
+/** One item in the rich 32-item preset checklist response. */
+export interface PresetRichRow {
+  id: string;
+  label: string;
+  severity: Severity;
+  mechanism: PresetMechanism;
+  source: string;
+  appliesTo: string[];
+  status: 'done' | 'partial' | 'missing';
+  note: string | null;
+}
+
+/** Summary counts for the preset-rich endpoint. */
+export interface PresetRichRes {
+  items: PresetRichRow[];
+  total: number;
+  done: number;
+  partial: number;
+  missing: number;
+}

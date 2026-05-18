@@ -4,6 +4,7 @@ import {
   type MockPresetItem,
   type MockMechanism,
 } from '../mock/data.js';
+import { CountUp } from './CountUp.js';
 
 // Full 32-item preset rendering — pulls from mockPresetItemsRich which carries
 // severity / mechanism / source / appliesTo (the F2 source-of-truth table from
@@ -87,18 +88,23 @@ export function PresetChecklistView() {
         <div className="flex items-baseline justify-between mb-3">
           <div>
             <div className="text-2xl font-medium text-ink">
-              {doneCount} <span className="text-muted/60 text-lg font-normal">/ {total}</span>
+              <CountUp value={doneCount} />
+              <span className="text-muted/60 text-lg font-normal"> / {total}</span>
             </div>
             <div className="text-xs text-muted/70 mt-0.5">
               产品级清单完成度 ·{' '}
               <span className="italic">来源：12-Factor · OWASP Top 10 · OpenSSF · WCAG · SRE</span>
             </div>
           </div>
-          <div className="text-3xl font-mono text-sage-600 leading-none">{pct}%</div>
+          <CountUp
+            value={pct}
+            className="text-3xl font-mono text-sage-600 leading-none"
+            format={(n) => `${Math.round(n)}%`}
+          />
         </div>
         <div className="w-full h-2 bg-paper rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-sage-600 to-sage-600/70 transition-all"
+            className="h-full bg-gradient-to-r from-sage-600 to-sage-600/70 transition-all duration-700 ease-out-quart"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -161,8 +167,14 @@ function Group({
       </button>
       {open && (
         <ul className="space-y-2.5">
-          {items.map((i) => (
-            <ItemCard key={i.id} item={i} />
+          {items.map((i, idx) => (
+            <div
+              key={i.id}
+              className="anim-stagger"
+              style={{ ['--i' as 'width']: idx as unknown as string }}
+            >
+              <ItemCard item={i} />
+            </div>
           ))}
         </ul>
       )}
@@ -174,7 +186,7 @@ function ItemCard({ item }: { item: MockPresetItem }) {
   const labelZh = LABEL_ZH[item.id] ?? item.label;
   const mechanism = MECHANISM_LABEL[item.mechanism];
   return (
-    <li className="bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-4 py-3.5">
+    <li className="bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-4 py-3.5 lift-on-hover">
       <div className="flex items-start gap-3 mb-2">
         <span className={`flex-shrink-0 inline-flex items-center justify-center w-7 h-5 rounded text-[10px] font-sans font-medium ${SEVERITY_COLOR[item.severity]}`}>
           {item.severity}

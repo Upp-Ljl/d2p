@@ -48,19 +48,26 @@ export function SessionsBoard() {
           </span>
         </div>
         <div className="space-y-3">
-          {mockAgentSessions.map((s) => (
-            <SessionCard
+          {mockAgentSessions.map((s, i) => (
+            <div
               key={s.role}
-              session={s}
-              active={activeRole === s.role}
-              onClick={() => setActiveRole(activeRole === s.role ? null : s.role)}
-            />
+              className="anim-stagger"
+              style={{ ['--i' as 'width']: i as unknown as string }}
+            >
+              <SessionCard
+                session={s}
+                active={activeRole === s.role}
+                onClick={() => setActiveRole(activeRole === s.role ? null : s.role)}
+              />
+            </div>
           ))}
         </div>
       </div>
 
       {drawerOpen && activeRole && (
-        <SessionTimelineDrawer role={activeRole} onClose={() => setActiveRole(null)} />
+        <div key={activeRole} className="flex-1 anim-drawer-right min-w-0">
+          <SessionTimelineDrawer role={activeRole} onClose={() => setActiveRole(null)} />
+        </div>
       )}
     </div>
   );
@@ -81,9 +88,9 @@ function SessionCard({
   const isWorking = session.status === 'working';
 
   const cls = [
-    'w-full text-left rounded-xl px-5 py-4 transition-all duration-150',
+    'w-full text-left rounded-xl px-5 py-4 lift-on-hover',
     isWorking
-      ? `${tint.bgWorking} shadow-glow ring-1 ring-coral/20`
+      ? `${tint.bgWorking} ring-1 ring-coral/20 anim-breathe`
       : active
         ? 'bg-cream shadow-cardHover ring-1 ring-warmline'
         : 'bg-cream shadow-card hover:shadow-cardHover ring-1 ring-warmline/60',
@@ -133,7 +140,7 @@ function SessionTimelineDrawer({ role, onClose }: { role: AgentRole; onClose: ()
 
   return (
     <div
-      className="flex-1 overflow-y-auto bg-cream rounded-xl shadow-card ring-1 ring-warmline/60"
+      className="h-full overflow-y-auto bg-cream rounded-xl shadow-card ring-1 ring-warmline/60"
       data-testid="session-timeline-drawer"
     >
       <div className="sticky top-0 bg-cream px-5 py-4 flex items-center justify-between rounded-t-xl">
@@ -162,7 +169,13 @@ function SessionTimelineDrawer({ role, onClose }: { role: AgentRole; onClose: ()
             .slice()
             .reverse()
             .map((t, idx) => (
-              <TimelineEntry key={`${t.turn}-${t.ts}`} t={t} isLast={idx === 0} />
+              <div
+                key={`${t.turn}-${t.ts}`}
+                className="anim-stagger"
+                style={{ ['--i' as 'width']: idx as unknown as string }}
+              >
+                <TimelineEntry t={t} isLast={idx === 0} />
+              </div>
             ))}
         </ol>
       )}

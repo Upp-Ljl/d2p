@@ -42,3 +42,147 @@
     @apply font-mono;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Motion — keep restrained. Durations 150-300ms. Easing: spring-y or
+   ease-out-quart. NO scale > 1.05, NO bounce, NO 闪烁. Animations skip
+   when user prefers-reduced-motion.
+   ─────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Spring-ish ease that feels precise, not bouncy. */
+  .ease-out-quart {
+    transition-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  .ease-out-quint {
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+
+@keyframes drift-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes drawer-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawer-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Breathing glow — used on working agents / current turn. Avoids
+   distracting brightness flips: only shadow intensity varies, color stays. */
+@keyframes breathe-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.18), 0 2px 14px rgba(201, 100, 66, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.28), 0 4px 22px rgba(201, 100, 66, 0.18);
+  }
+}
+
+@keyframes breathe-dot {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+
+@keyframes stagger-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-drift-in {
+  animation: drift-in 250ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+
+.anim-scale-in {
+  animation: scale-in 200ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+
+.anim-drawer-right {
+  animation: drawer-in-right 220ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+
+.anim-drawer-left {
+  animation: drawer-in-left 220ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+
+.anim-breathe {
+  animation: breathe-glow 2.8s ease-in-out infinite;
+}
+
+.anim-breathe-dot {
+  animation: breathe-dot 1.8s ease-in-out infinite;
+}
+
+/* Stagger helper — apply with an inline --i: 0, 1, 2, ... so each child
+   delays in turn. Caps at 8 to avoid long initial blank states. */
+.anim-stagger {
+  animation: stagger-rise 240ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+  animation-delay: calc(min(var(--i, 0), 7) * 40ms);
+}
+
+.lift-on-hover {
+  transition: transform 180ms cubic-bezier(0.165, 0.84, 0.44, 1),
+              box-shadow 180ms cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.lift-on-hover:hover {
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-drift-in,
+  .anim-scale-in,
+  .anim-drawer-right,
+  .anim-drawer-left,
+  .anim-breathe,
+  .anim-breathe-dot,
+  .anim-stagger {
+    animation: none !important;
+  }
+  .lift-on-hover {
+    transition: none !important;
+  }
+  .lift-on-hover:hover {
+    transform: none !important;
+  }
+}

@@ -45,7 +45,8 @@ export function CommitsTimeline() {
           return (
             <li
               key={c.sha}
-              className="relative pl-8"
+              className="relative pl-8 anim-stagger"
+              style={{ ['--i' as 'width']: idx as unknown as string }}
               data-testid={`commit-${c.shortSha}`}
             >
               {/* Timeline dot + line */}
@@ -54,7 +55,7 @@ export function CommitsTimeline() {
                 <span className="absolute left-[15px] top-9 bottom-[-16px] w-px bg-warmline" />
               )}
 
-              <div className="bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-5 py-4">
+              <div className="bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-5 py-4 lift-on-hover">
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className="font-mono text-sage-600 text-xs">{c.shortSha}</span>
                   <span className="text-sm text-ink font-medium flex-1 line-clamp-1">{c.gapTitle}</span>
@@ -83,7 +84,7 @@ export function CommitsTimeline() {
                   <button
                     type="button"
                     onClick={() => setRewindTarget(c.sha)}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-coralsoft text-coral hover:bg-coral hover:text-cream transition-colors font-sans font-medium"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-coralsoft text-coral hover:bg-coral hover:text-cream transition-all duration-200 ease-out-quart font-sans font-medium"
                     data-testid={`rewind-${c.shortSha}`}
                     title="把代码库回退到这个 commit 之前"
                   >
@@ -142,10 +143,10 @@ function RewindConfirm({
 }) {
   return (
     <div
-      className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 anim-drift-in"
       data-testid="rewind-confirm-modal"
     >
-      <div className="bg-cream rounded-2xl shadow-cardHover max-w-md w-full p-6 space-y-4 mx-4">
+      <div className="bg-cream rounded-2xl shadow-cardHover max-w-md w-full p-6 space-y-4 mx-4 anim-scale-in">
         <div className="text-lg font-medium text-ink">回滚到此次 commit 之前？</div>
         <div className="text-sm text-muted leading-relaxed">
           这会把 main 分支回退到 <span className="font-mono text-sage-600">{commit.shortSha}</span>{' '}

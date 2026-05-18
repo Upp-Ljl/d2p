@@ -43,3 +43,6 @@ ui/design-screenshots/
 vite-test.*
 ui/vite-test.*
 
+
+# git worktrees for parallel agents
+.worktrees/

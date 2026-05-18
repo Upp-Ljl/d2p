@@ -114,7 +114,7 @@ describe('MultiTurnPanel — narrative-first layout', () => {
     render(<MultiTurnPanel />);
     const dot = screen.getByTestId('multi-turn-health-dot');
     expect(dot).toBeInTheDocument();
-    expect(dot.className).toMatch(/animate-pulse/);
+    expect(dot.className).toMatch(/anim-breathe-dot/);
   });
 
   it('progress bar visible when running, not when done', () => {

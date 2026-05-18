@@ -119,7 +119,7 @@ export function MultiTurnPanel({ onBackToGaps }: { onBackToGaps?: () => void } =
           <div className="flex items-center gap-2 ml-auto">
             <span
               className={`inline-block w-2 h-2 rounded-full ${style.dot} ${
-                mt.phase === 'running' ? 'animate-pulse' : ''
+                mt.phase === 'running' ? 'anim-breathe-dot' : ''
               }`}
               data-testid="multi-turn-health-dot"
             />
@@ -163,7 +163,7 @@ export function MultiTurnPanel({ onBackToGaps }: { onBackToGaps?: () => void } =
                 </div>
                 <div className="h-1.5 bg-warmline rounded overflow-hidden">
                   <div
-                    className={`h-full ${style.bar} transition-all duration-300`}
+                    className={`h-full ${style.bar} transition-all duration-700 ease-out-quart`}
                     style={{ width: `${Math.round(timeFraction * 100)}%` }}
                     data-testid="multi-turn-progress-bar"
                   />
@@ -274,7 +274,8 @@ function TurnTimeline({ turns }: { turns: MultiTurnTurn[] }) {
           return (
             <li
               key={t.index}
-              className="flex gap-3 items-start"
+              className="flex gap-3 items-start anim-stagger"
+              style={{ ['--i' as 'width']: idx as unknown as string }}
               data-testid={`multi-turn-step-${t.index}`}
             >
               <div className="flex flex-col items-center flex-shrink-0 pt-1">

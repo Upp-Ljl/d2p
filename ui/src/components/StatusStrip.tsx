@@ -3,6 +3,7 @@ import { useStore } from '../store.js';
 import { GapList } from './GapList.js';
 import { RunLog } from './RunLog.js';
 import { PresetChecklistView } from './PresetChecklistView.js';
+import { CountUp } from './CountUp.js';
 import { mockPresetItemsRich } from '../mock/data.js';
 
 // One-line KPI bar that lives between the Workspace header and the main
@@ -44,9 +45,9 @@ export function StatusStrip() {
           onClick={() => setOpen(open === 'preset' ? null : 'preset')}
         />
 
-        <Kpi
+        <KpiCountUp
           label="待办"
-          value={`${gapsInProgress + gapsPending}`}
+          value={gapsInProgress + gapsPending}
           hint={
             gapsInProgress > 0
               ? `${gapsInProgress} 处理中 · ${gapsPending} 等`
@@ -60,11 +61,12 @@ export function StatusStrip() {
               {gapsComplex} 复杂
             </span>
           )}
-        </Kpi>
+        </KpiCountUp>
 
-        <Kpi
+        <KpiCountUp
           label="花费"
-          value={`$${costTotals.estimatedUsd.toFixed(2)}`}
+          value={costTotals.estimatedUsd}
+          format={(n) => `$${n.toFixed(2)}`}
           hint={`${fmtTokens(costTotals.inputTokens + costTotals.outputTokens)} tokens`}
         />
 
@@ -107,6 +109,48 @@ export function StatusStrip() {
   );
 }
 
+function KpiCountUp({
+  label,
+  value,
+  format,
+  hint,
+  onClick,
+  active,
+  children,
+}: {
+  label: string;
+  value: number;
+  format?: (n: number) => string;
+  hint?: string;
+  onClick?: () => void;
+  active?: boolean;
+  children?: ReactNode;
+}) {
+  const cls = `flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ease-out-quart ${
+    onClick
+      ? active
+        ? 'bg-coral/10 text-coral ring-1 ring-coral/30'
+        : 'hover:bg-paper hover:-translate-y-0.5 text-ink ring-1 ring-transparent cursor-pointer'
+      : 'text-ink'
+  }`;
+  const inner = (
+    <>
+      <span className="text-[10px] uppercase tracking-widest text-muted/60">{label}</span>
+      <CountUp value={value} format={format} className="font-mono text-sm" />
+      {hint && <span className="text-muted/70 text-xs">· {hint}</span>}
+      {children}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" className={cls} onClick={onClick} aria-expanded={active}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
+}
+
 function PresetKpi({
   done,
   total,
@@ -125,10 +169,10 @@ function PresetKpi({
       type="button"
       onClick={onClick}
       aria-expanded={active}
-      className={`flex items-center gap-3 pl-3 pr-4 py-1.5 rounded-lg transition-colors ${
+      className={`flex items-center gap-3 pl-3 pr-4 py-1.5 rounded-lg transition-all duration-200 ease-out-quart ${
         active
           ? 'bg-sage-50 ring-1 ring-sage-600/30'
-          : 'hover:bg-paper ring-1 ring-transparent'
+          : 'hover:bg-paper hover:-translate-y-0.5 ring-1 ring-transparent'
       }`}
       title="点开查看完整验收清单"
     >
@@ -137,15 +181,19 @@ function PresetKpi({
           验收清单
         </span>
         <span className="text-sm text-ink leading-tight">
-          <span className="font-medium">{done}</span>
+          <CountUp value={done} className="font-medium" />
           <span className="text-muted/50"> / {total}</span>
         </span>
       </div>
       <div className="flex flex-col items-end gap-1">
-        <span className="font-mono text-xs text-sage-600 font-medium leading-none">{pct}%</span>
+        <CountUp
+          value={pct}
+          className="font-mono text-xs text-sage-600 font-medium leading-none"
+          format={(n) => `${Math.round(n)}%`}
+        />
         <div className="w-20 h-1.5 bg-warmline rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-sage-600 to-sage-600/70 transition-all"
+            className="h-full bg-gradient-to-r from-sage-600 to-sage-600/70 transition-all duration-700 ease-out-quart"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -213,9 +261,9 @@ function Drawer({
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-x-0 top-[105px] bottom-0 bg-ink/30 z-40 flex" onClick={onClose}>
+    <div className="fixed inset-x-0 top-[105px] bottom-0 bg-ink/30 z-40 flex anim-drift-in" onClick={onClose}>
       <div
-        className="bg-paper border-r border-warmline w-[440px] flex flex-col shadow-xl"
+        className="bg-paper border-r border-warmline w-[480px] flex flex-col shadow-xl anim-drawer-left"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="card-header flex items-center justify-between bg-cream flex-shrink-0">

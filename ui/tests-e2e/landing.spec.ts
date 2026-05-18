@@ -43,13 +43,13 @@ test('Picking openai-compat reveals quick presets (incl. MiniMax)', async ({ pag
   await expect(page.getByRole('button', { name: /Z\.ai/ })).toBeVisible();
 });
 
-test('MiniMax preset fills baseUrl + MiniMax-M2 models', async ({ page }) => {
+test('MiniMax preset fills baseUrl + MiniMax-M2.7 models', async ({ page }) => {
   await page.goto(h.uiUrl);
   await page.getByRole('button', { name: /⚙ 设置/ }).click();
   await page.getByRole('radio', { name: 'openai-compat' }).click();
   await page.getByRole('button', { name: 'MiniMax' }).click();
-  await expect(page.locator('input[value="https://api.minimaxi.chat/v1"]')).toBeVisible();
-  await expect(page.locator('input[value="MiniMax-M2"]').first()).toBeVisible();
+  await expect(page.locator('input[value="https://api.minimaxi.com/v1"]')).toBeVisible();
+  await expect(page.locator('input[value="MiniMax-M2.7"]').first()).toBeVisible();
 });
 
 test('OpenRouter preset fills baseUrl + model fields', async ({ page }) => {

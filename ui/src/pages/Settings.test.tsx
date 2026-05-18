@@ -60,8 +60,8 @@ describe('Settings page', () => {
     const minimaxBtn = screen.getByRole('button', { name: 'MiniMax' });
     expect(minimaxBtn).toBeInTheDocument();
     fireEvent.click(minimaxBtn);
-    expect(screen.getByDisplayValue('https://api.minimaxi.chat/v1')).toBeInTheDocument();
-    expect(screen.getAllByDisplayValue('MiniMax-M2').length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue('https://api.minimaxi.com/v1')).toBeInTheDocument();
+    expect(screen.getAllByDisplayValue('MiniMax-M2.7').length).toBeGreaterThan(0);
   });
 
   it('save without API key shows error', async () => {

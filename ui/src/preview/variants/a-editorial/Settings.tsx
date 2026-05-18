@@ -53,12 +53,12 @@ export function SettingsA() {
         </section>
 
         <section className="mt-10 space-y-5">
-          <Field label="base URL" value="https://api.minimaxi.chat/v1" />
+          <Field label="base URL" value="https://api.minimaxi.com/v1" />
           <Field label="API key" value="••••••••••••••••" secret />
           <div className="grid grid-cols-3 gap-4">
             <Field label="haiku" value="abab6.5s-chat" small />
-            <Field label="sonnet" value="MiniMax-M2" small />
-            <Field label="opus" value="MiniMax-M2" small />
+            <Field label="sonnet" value="MiniMax-M2.7" small />
+            <Field label="opus" value="MiniMax-M2.7" small />
           </div>
         </section>
 

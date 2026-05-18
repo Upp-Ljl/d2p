@@ -45,11 +45,11 @@ const DEFAULTS: FormState = {
 const PRESETS: { label: string; baseUrl: string; models: ModelMap; extraHeaders?: string; note?: string }[] = [
   {
     label: 'MiniMax',
-    baseUrl: 'https://api.minimaxi.chat/v1',
+    baseUrl: 'https://api.minimaxi.com/v1',
     models: {
-      haiku: 'abab6.5s-chat',
-      sonnet: 'MiniMax-M2',
-      opus: 'MiniMax-M2',
+      haiku: 'MiniMax-M2.7-highspeed',
+      sonnet: 'MiniMax-M2.7',
+      opus: 'MiniMax-M2.7',
     },
     note: '海螺 MiniMax tokenplan',
   },

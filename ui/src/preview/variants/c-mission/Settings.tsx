@@ -65,7 +65,7 @@ export function SettingsC() {
               <div className="p-5">
                 <div className="grid grid-cols-4 gap-2">
                   {[
-                    { n: 'MiniMax', h: 'api.minimaxi.chat', active: true },
+                    { n: 'MiniMax', h: 'api.minimaxi.com', active: true },
                     { n: 'OpenRouter', h: 'openrouter.ai' },
                     { n: 'DeepSeek', h: 'api.deepseek.com' },
                     { n: 'Z.ai', h: 'open.bigmodel.cn' },
@@ -90,11 +90,11 @@ export function SettingsC() {
             <section className="card">
               <div className="card-header">Active configuration</div>
               <div className="p-5 grid grid-cols-2 gap-4">
-                <FieldC label="base URL" v="https://api.minimaxi.chat/v1" mono />
+                <FieldC label="base URL" v="https://api.minimaxi.com/v1" mono />
                 <FieldC label="API key" v="••••••••••••••••" secret mono />
                 <FieldC label="model · haiku" v="abab6.5s-chat" mono />
-                <FieldC label="model · sonnet" v="MiniMax-M2" mono />
-                <FieldC label="model · opus" v="MiniMax-M2" mono />
+                <FieldC label="model · sonnet" v="MiniMax-M2.7" mono />
+                <FieldC label="model · opus" v="MiniMax-M2.7" mono />
                 <FieldC label="extraHeaders" v="{}" mono dim />
               </div>
             </section>

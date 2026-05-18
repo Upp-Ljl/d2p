@@ -50,11 +50,11 @@ export function SettingsB() {
         </section>
 
         <section className="mb-8 space-y-1 text-xs">
-          <Cfg k="baseUrl"        v="https://api.minimaxi.chat/v1" />
+          <Cfg k="baseUrl"        v="https://api.minimaxi.com/v1" />
           <Cfg k="apiKey"         v="••••••••••••••••" secret />
           <Cfg k="model.haiku"    v="abab6.5s-chat" />
-          <Cfg k="model.sonnet"   v="MiniMax-M2" />
-          <Cfg k="model.opus"     v="MiniMax-M2" />
+          <Cfg k="model.sonnet"   v="MiniMax-M2.7" />
+          <Cfg k="model.opus"     v="MiniMax-M2.7" />
           <Cfg k="extraHeaders"   v="{}" dim />
         </section>
 

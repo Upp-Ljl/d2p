@@ -6,9 +6,18 @@ import { Setup } from './pages/Setup.js';
 import { Workspace } from './pages/Workspace.js';
 import { Done } from './pages/Done.js';
 import { Settings } from './pages/Settings.js';
+import { Preview, readPreviewParam } from './preview/Preview.js';
 
 export function App() {
-  useEffect(() => bootstrap(), []);
+  // Preview mode short-circuits production routing entirely — no daemon poll,
+  // no SSE, no real session — so designers can iterate offline.
+  const previewParam = readPreviewParam();
+  useEffect(() => {
+    if (previewParam) return; // skip bootstrap in preview
+    return bootstrap();
+  }, [previewParam]);
+  if (previewParam) return <Preview />;
+
   const session = useStore((s) => s.session);
   const health = useStore((s) => s.health);
   const showSettings = useStore((s) => s.showSettings);

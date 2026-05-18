@@ -35,7 +35,7 @@ async function freePort(): Promise<number> {
   });
 }
 
-async function waitForHttp(url: string, timeoutMs = 30_000): Promise<void> {
+async function waitForHttp(url: string, timeoutMs = 90_000): Promise<void> {
   const t0 = Date.now();
   while (Date.now() - t0 < timeoutMs) {
     try {
@@ -90,10 +90,14 @@ export async function startHarness(): Promise<Harness> {
 
   await waitForHttp(`http://localhost:${daemonPort}/api/health`);
 
-  const isWin = process.platform === 'win32';
+  // Spawn vite via node directly — avoids the npm.cmd wrapper which has been
+  // flaky inside Playwright workers on Windows (silently hung child).
+  const viteBin = path.join(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js');
   const vite: ChildProcess = spawn(
-    isWin ? 'npm.cmd' : 'npm',
-    ['exec', 'vite', '--', '--port', String(uiPort), '--strictPort'],
+    process.execPath,
+    // --host 127.0.0.1 forces IPv4 binding; default IPv6-only [::1] binding
+    // makes Node's fetch from inside Playwright workers hang on Windows.
+    [viteBin, '--host', '127.0.0.1', '--port', String(uiPort), '--strictPort'],
     {
       cwd: path.join(repoRoot, 'ui'),
       env: {
@@ -102,16 +106,16 @@ export async function startHarness(): Promise<Harness> {
         D2P_UI_PORT: String(uiPort),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: isWin,
     },
   );
-  vite.stderr?.on('data', (b) => process.stderr.write(`[vite] ${b}`));
+  vite.stdout?.on('data', (b) => process.stderr.write(`[vite] ${b}`));
+  vite.stderr?.on('data', (b) => process.stderr.write(`[vite-err] ${b}`));
 
   await waitForHttp(`http://localhost:${uiPort}/`);
 
   return {
-    daemonUrl: `http://localhost:${daemonPort}`,
-    uiUrl: `http://localhost:${uiPort}`,
+    daemonUrl: `http://127.0.0.1:${daemonPort}`,
+    uiUrl: `http://127.0.0.1:${uiPort}`,
     tmpDir,
     daemonPort,
     uiPort,

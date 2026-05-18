@@ -37,4 +37,9 @@ coverage/
 ui/playwright-report/
 ui/test-results/
 ui/tests-e2e/.cache/
+ui/design-screenshots/
+
+# transient diagnostic dumps
+vite-test.*
+ui/vite-test.*
 

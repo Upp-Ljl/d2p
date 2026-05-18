@@ -1,0 +1,344 @@
+// Rich canned store state for design previews. Lets a designer iterate on
+// every page in every variant without spinning up daemon + real LLM.
+
+import type {
+  Demo,
+  DetectorOutput,
+  Gap,
+  HealthResponse,
+  LoopState,
+  PresetStatusItem,
+  Session,
+  SessionStatus,
+  SseEnvelope,
+  VisionRoundRes,
+  CostTotals,
+} from '../types.js';
+
+const NOW = Date.now();
+const m = (mins: number) => NOW - mins * 60_000;
+
+export const mockHealth: HealthResponse = {
+  ok: true,
+  daemonVersion: '0.1.0',
+  promptsVersion: 1,
+  claudeCli: { found: true, version: '2.1.81 (Claude Code)' },
+  gitCli: { found: true, version: 'git version 2.51.2.windows.1' },
+  dbPath: 'C:\\Users\\jushi\\.d2p\\state.db',
+  uptimeMs: 1_234_000,
+};
+
+export const mockDemo: Demo = {
+  id: 1,
+  path: 'D:\\demos\\notes-saas',
+  firstSeenAt: m(180),
+  lastSessionAt: m(45),
+  inferredType: 'saas-web',
+};
+
+export const mockSession = (status: SessionStatus = 'LOOPING'): Session => ({
+  id: 7,
+  demoId: 1,
+  startedAt: m(45),
+  endedAt: status === 'DONE' || status === 'ENDED' ? m(2) : null,
+  status,
+  visionMdPath: 'D:\\demos\\notes-saas\\.d2p\\vision.md',
+  presetType: 'saas-web',
+  mode: 'local-merge',
+  githubRepo: null,
+  baseBranch: 'main',
+});
+
+export const mockPresetStatus: PresetStatusItem[] = [
+  { item: 'has-typecheck-script', status: 'done', note: 'tsc --noEmit passes' },
+  { item: 'has-build-script', status: 'done', note: null },
+  { item: 'has-test-runner', status: 'done', note: 'vitest configured' },
+  { item: 'tests-cover-happy-path', status: 'done', note: '12/12 pass' },
+  { item: 'tests-cover-edge-cases', status: 'partial', note: 'login flow only' },
+  { item: 'has-readme', status: 'done', note: null },
+  { item: 'readme-has-quickstart', status: 'done', note: null },
+  { item: 'has-license', status: 'done', note: 'MIT' },
+  { item: 'env-example-present', status: 'done', note: null },
+  { item: 'no-hardcoded-secrets', status: 'done', note: null },
+  { item: 'auth-flow-implemented', status: 'done', note: null },
+  { item: 'rate-limiting', status: 'partial', note: 'middleware stub' },
+  { item: 'observability-logging', status: 'missing', note: null },
+  { item: 'deploy-config', status: 'missing', note: null },
+  { item: 'ci-pipeline', status: 'missing', note: null },
+  { item: 'error-boundaries', status: 'missing', note: null },
+  { item: 'a11y-baseline', status: 'missing', note: null },
+  { item: 'mobile-responsive', status: 'partial', note: 'workspace breaks <768px' },
+];
+
+export const mockCostTotals: CostTotals = {
+  inputTokens: 487_352,
+  outputTokens: 124_891,
+  estimatedUsd: 1.27,
+};
+
+export const mockGaps: Gap[] = [
+  {
+    id: 101,
+    sessionId: 7,
+    slug: 'add-observability-logging',
+    title: 'Add structured logging for request lifecycle',
+    body: 'Every API request should emit a JSON log with request_id, route, status, duration_ms.',
+    category: 'observability',
+    severity: 'P1',
+    source: 'preset',
+    suggestedApproach: 'Use pino with a request-id middleware.',
+    expectedFilesChanged: ['src/middleware/logger.ts', 'src/server.ts'],
+    status: 'IN_PROGRESS',
+    dynamicK: 3,
+    parentGapId: null,
+    createdAt: m(40),
+    finishedAt: null,
+  },
+  {
+    id: 102,
+    sessionId: 7,
+    slug: 'deploy-config-vercel',
+    title: 'Add Vercel deploy config + GitHub Action',
+    body: 'vision wants one-click deploy. Add vercel.json + .github/workflows/deploy.yml.',
+    category: 'deploy',
+    severity: 'P1',
+    source: 'vision',
+    suggestedApproach: '',
+    expectedFilesChanged: ['vercel.json', '.github/workflows/deploy.yml'],
+    status: 'PENDING',
+    dynamicK: null,
+    parentGapId: null,
+    createdAt: m(38),
+    finishedAt: null,
+  },
+  {
+    id: 103,
+    sessionId: 7,
+    slug: 'rate-limit-auth-endpoints',
+    title: 'Per-IP rate limiting on /auth/*',
+    body: 'Prevent credential-stuffing: 5 attempts/min/IP, exponential backoff after.',
+    category: 'security',
+    severity: 'P2',
+    source: 'both',
+    suggestedApproach: '',
+    expectedFilesChanged: ['src/middleware/rate-limit.ts', 'src/routes/auth.ts'],
+    status: 'PENDING',
+    dynamicK: null,
+    parentGapId: null,
+    createdAt: m(35),
+    finishedAt: null,
+  },
+  {
+    id: 104,
+    sessionId: 7,
+    slug: 'error-boundary-react',
+    title: 'React error boundary at root',
+    body: 'A thrown component error should not blank the page. Show a friendly fallback.',
+    category: 'reliability',
+    severity: 'P2',
+    source: 'preset',
+    suggestedApproach: '',
+    expectedFilesChanged: ['ui/src/ErrorBoundary.tsx', 'ui/src/main.tsx'],
+    status: 'PENDING',
+    dynamicK: null,
+    parentGapId: null,
+    createdAt: m(33),
+    finishedAt: null,
+  },
+  {
+    id: 105,
+    sessionId: 7,
+    slug: 'mobile-workspace-responsive',
+    title: 'Workspace layout works on mobile',
+    body: '3-column grid collapses to tabs under 768px.',
+    category: 'ux',
+    severity: 'P2',
+    source: 'preset',
+    suggestedApproach: '',
+    expectedFilesChanged: ['ui/src/pages/Workspace.tsx'],
+    status: 'NEED_HUMAN',
+    dynamicK: 4,
+    parentGapId: null,
+    createdAt: m(28),
+    finishedAt: null,
+  },
+  {
+    id: 106,
+    sessionId: 7,
+    slug: 'add-license-mit',
+    title: 'Add MIT LICENSE file',
+    body: 'No license file at repo root. MIT per vision.',
+    category: 'docs',
+    severity: 'P3',
+    source: 'preset',
+    suggestedApproach: '',
+    expectedFilesChanged: ['LICENSE'],
+    status: 'DONE',
+    dynamicK: 2,
+    parentGapId: null,
+    createdAt: m(25),
+    finishedAt: m(22),
+  },
+  {
+    id: 107,
+    sessionId: 7,
+    slug: 'env-example-template',
+    title: '.env.example with documented vars',
+    body: 'Every var read via process.env should appear in .env.example with a comment.',
+    category: 'docs',
+    severity: 'P3',
+    source: 'preset',
+    suggestedApproach: '',
+    expectedFilesChanged: ['.env.example', 'README.md'],
+    status: 'DONE',
+    dynamicK: 2,
+    parentGapId: null,
+    createdAt: m(20),
+    finishedAt: m(15),
+  },
+  {
+    id: 108,
+    sessionId: 7,
+    slug: 'split-auth-into-tokens-sessions',
+    title: 'Split auth gap into token + session sub-tasks',
+    body: 'Original auth gap was too big; reviewer asked for split.',
+    category: 'security',
+    severity: 'P1',
+    source: 'preset',
+    suggestedApproach: '',
+    expectedFilesChanged: [],
+    status: 'SPLIT_DONE',
+    dynamicK: null,
+    parentGapId: null,
+    createdAt: m(12),
+    finishedAt: m(10),
+  },
+];
+
+const kinds = [
+  ['SESSION_STARTED', { demoPath: 'D:\\demos\\notes-saas' }],
+  ['AGENT_START', { role: 'detector', model: 'haiku', thought: 'scanning repo for type signals' }],
+  ['TYPE_DETECTED', { type: 'saas-web', confidence: 0.94 }],
+  ['PRESET_CHOSEN', { type: 'saas-web' }],
+  ['AGENT_START', { role: 'vision', model: 'haiku', thought: 'eliciting product vision r1' }],
+  ['VISION_QUESTION_ASKED', { roundIndex: 1 }],
+  ['VISION_ANSWERED', { roundIndex: 1 }],
+  ['VISION_FINALIZED', {}],
+  ['LOOP_STARTED', {}],
+  ['AGENT_START', { role: 'differ', model: 'sonnet', thought: 'comparing demo vs preset+vision' }],
+  ['DIFF_PRODUCED', { inserted: 11 }],
+  ['GAP_PICKED', { slug: 'add-license-mit' }],
+  ['WORKTREE_CREATED', { path: '.d2p-worktrees/fix-add-license-mit-1' }],
+  ['AGENT_START', { role: 'implementer', model: 'haiku', thought: 'writing LICENSE file' }],
+  ['FIX_COMMITTED', { commitSha: 'a1b2c3d4e5' }],
+  ['STATIC_GATE_PASSED', { slug: 'add-license-mit' }],
+  ['ALIGNMENT_RESULT', { score: 0.97 }],
+  ['REVIEW_VERDICT', { verdict: 'APPROVE', reasonCode: 'MEETS_GAP' }],
+  ['MERGED', { mergeSha: 'a1b2c3d4e5' }],
+  ['GAP_DONE', { slug: 'add-license-mit' }],
+  ['GAP_PICKED', { slug: 'env-example-template' }],
+  ['WORKTREE_CREATED', { path: '.d2p-worktrees/fix-env-example-template-1' }],
+  ['AGENT_START', { role: 'implementer', model: 'haiku' }],
+  ['FIX_COMMITTED', { commitSha: 'b2c3d4e5f6' }],
+  ['STATIC_GATE_PASSED', { slug: 'env-example-template' }],
+  ['ALIGNMENT_RESULT', { score: 0.91 }],
+  ['REVIEW_VERDICT', { verdict: 'APPROVE', reasonCode: 'MEETS_GAP' }],
+  ['MERGED', { mergeSha: 'b2c3d4e5f6' }],
+  ['GAP_DONE', { slug: 'env-example-template' }],
+  ['GAP_PICKED', { slug: 'add-observability-logging' }],
+  ['WORKTREE_CREATED', { path: '.d2p-worktrees/fix-add-observability-logging-1' }],
+  ['AGENT_START', { role: 'implementer', model: 'sonnet', thought: 'wiring pino + request-id middleware' }],
+] as const;
+
+export const mockEvents: SseEnvelope[] = kinds.map(([kind, payload], i) => ({
+  id: i + 1,
+  ts: m(45 - i * 1.3),
+  kind: kind as string,
+  level: 'info',
+  payload: payload as Record<string, unknown>,
+}));
+
+export const mockLoopState: LoopState = {
+  isRunning: true,
+  pauseRequested: false,
+  sessionId: 7,
+};
+
+export const mockDetector: DetectorOutput = {
+  type: 'saas-web',
+  confidence: 0.94,
+  evidence: [
+    'package.json declares vite + react',
+    'src/pages/ + src/api/ split typical of SaaS app',
+    'Drizzle ORM schemas in src/db/',
+    'Auth middleware in src/middleware/auth.ts',
+  ],
+  presetCandidates: ['saas-web', 'api-service'],
+  inferredCheckCommands: {
+    build: 'npm run build',
+    test: 'npm test',
+    typecheck: 'npm run typecheck',
+  },
+};
+
+export const mockVisionRound: VisionRoundRes = {
+  done: true,
+  roundIndex: 3,
+  visionMd:
+    '# Vision — notes-saas\n\n' +
+    'A minimal note-taking SaaS for solo creators.\n\n' +
+    '## Done means\n' +
+    '- Sign up + sign in with magic link\n' +
+    '- CRUD notes with markdown rendering\n' +
+    '- Full-text search\n' +
+    '- One-click Vercel deploy\n' +
+    '- Free tier: 100 notes; paid: unlimited\n\n' +
+    '## Not in scope (yet)\n' +
+    '- Mobile app\n' +
+    '- Real-time collab\n' +
+    '- Plugins / integrations\n',
+  visionMdPath: 'D:\\demos\\notes-saas\\.d2p\\vision.md',
+};
+
+/** Compose a complete store state for a given target page/status. */
+export function mockStoreFor(opts: {
+  status?: SessionStatus;
+  empty?: boolean;
+  paused?: boolean;
+} = {}): Record<string, unknown> {
+  const status: SessionStatus = opts.status ?? 'LOOPING';
+  if (opts.empty) {
+    return {
+      health: mockHealth,
+      session: null,
+      demo: null,
+      presetStatus: [],
+      costTotals: { inputTokens: 0, outputTokens: 0, estimatedUsd: 0 },
+      gaps: [],
+      events: [],
+      loopState: null,
+      detector: null,
+      visionRound: null,
+      sseConnected: true,
+      showSettings: false,
+    };
+  }
+  const session = mockSession(status);
+  return {
+    health: mockHealth,
+    session,
+    demo: mockDemo,
+    presetStatus: mockPresetStatus,
+    costTotals: mockCostTotals,
+    gaps: mockGaps,
+    events: mockEvents,
+    loopState: opts.paused
+      ? { ...mockLoopState, pauseRequested: true, isRunning: true }
+      : mockLoopState,
+    detector: mockDetector,
+    visionRound: mockVisionRound,
+    sseConnected: true,
+    showSettings: false,
+    summaryMdPath: status === 'DONE' || status === 'ENDED' ? 'D:\\demos\\notes-saas\\.d2p\\summary.md' : null,
+  };
+}

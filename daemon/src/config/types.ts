@@ -49,7 +49,13 @@ export interface GitHubConfig {
 }
 
 export interface AppConfig {
+  /** The worker — runs detector, vision, differ, implementer, repo-summary. */
   engine: EngineConfig;
+  /** Optional second engine used by reviewer roles (alignment, behavioral,
+   *  adversarial, done-check). If unset OR same family as `engine`, d2p
+   *  proceeds in degraded mode and surfaces a "cross-family OFF" warning in
+   *  the UI. See engines/router.ts for the policy. */
+  criticEngine?: EngineConfig;
   github?: GitHubConfig;
 }
 

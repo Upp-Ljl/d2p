@@ -49,6 +49,8 @@ const GitHubSchema = z.object({
 
 export const AppConfigSchema = z.object({
   engine: EngineSchema,
+  /** F1: optional second engine used by reviewer roles (cross-family critic). */
+  criticEngine: EngineSchema.optional(),
   github: GitHubSchema.optional(),
 });
 
@@ -91,6 +93,9 @@ export function redactForView(cfg: AppConfig): AppConfig {
   const cloned: AppConfig = JSON.parse(JSON.stringify(cfg));
   if (cloned.engine.kind === 'openai-compat' || cloned.engine.kind === 'anthropic-api') {
     cloned.engine.apiKey = maskSecret(cloned.engine.apiKey);
+  }
+  if (cloned.criticEngine && (cloned.criticEngine.kind === 'openai-compat' || cloned.criticEngine.kind === 'anthropic-api')) {
+    cloned.criticEngine.apiKey = maskSecret(cloned.criticEngine.apiKey);
   }
   if (cloned.github) cloned.github.token = maskSecret(cloned.github.token);
   return cloned;

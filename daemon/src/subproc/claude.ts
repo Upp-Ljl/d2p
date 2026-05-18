@@ -6,7 +6,8 @@ import type { ClaudeCallResult, ClaudeModel, ClaudeRole, TokenUsage } from '../t
 import { PROMPTS_VERSION } from '../prompts/version.js';
 import { buildEngine } from '../engines/factory.js';
 import { extractTokenUsage as cliExtract } from '../engines/claude-cli.js';
-import { getActiveEngine } from '../engines/registry.js';
+import { getActiveEngine, getCriticEngine } from '../engines/registry.js';
+import { CRITIC_ROLES } from '../engines/router.js';
 
 export const ROLE_TIMEOUTS: Record<ClaudeRole, number> = {
   detector: 60_000,
@@ -31,7 +32,11 @@ export interface CallClaudeOpts<T> {
 }
 
 export async function callClaude<T = unknown>(opts: CallClaudeOpts<T>): Promise<ClaudeCallResult<T>> {
-  const engine = getActiveEngine();
+  // F1: reviewer roles run on the critic engine (which is a different family
+  // from the worker when the user has configured one — see engines/router.ts).
+  // Worker roles run on the active engine. Either way the call surface is
+  // identical; consumers don't need to know which engine answered them.
+  const engine = CRITIC_ROLES.has(opts.role) ? getCriticEngine() : getActiveEngine();
   return engine.call<T>({
     role: opts.role,
     model: opts.model,

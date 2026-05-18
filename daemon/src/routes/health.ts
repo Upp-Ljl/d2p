@@ -8,6 +8,8 @@ import { claudeVersion } from '../subproc/claude.js';
 import { gitVersion } from '../subproc/git.js';
 import { PROMPTS_VERSION } from '../prompts/version.js';
 import { listAvailablePresets } from '../preset/loader.js';
+import { currentCriticPolicy, currentEngineConfig, currentCriticConfig } from '../engines/registry.js';
+import { engineFamily, engineFamilyLabel } from '../engines/router.js';
 
 const startedAt = Date.now();
 const DAEMON_VERSION = '0.1.0';
@@ -78,6 +80,22 @@ healthRoutes.get('/doctor', async (c) => {
     checks.push({ name: 'presets-loaded', ok: false, detail: (e as Error).message });
   }
 
+  // F1 — cross-engine critic policy. Surface here so the UI can paint the
+  // cross-family badge without needing a separate endpoint.
+  const policy = currentCriticPolicy();
+  const workerCfg = currentEngineConfig();
+  const criticCfg = currentCriticConfig();
+  const enginePolicy = policy && workerCfg
+    ? {
+        worker: { kind: workerCfg.kind, family: engineFamilyLabel(engineFamily(workerCfg)) },
+        critic: criticCfg
+          ? { kind: criticCfg.kind, family: engineFamilyLabel(engineFamily(criticCfg)) }
+          : null,
+        crossFamily: policy.crossFamily,
+        reason: policy.reason,
+      }
+    : null;
+
   const ok = checks.every((c) => c.ok);
-  return c.json({ ok, checks });
+  return c.json({ ok, checks, enginePolicy });
 });

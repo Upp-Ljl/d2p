@@ -55,9 +55,12 @@ const port = Number(process.env.D2P_DAEMON_PORT ?? 5174);
 // block startup on git operations that may take a few hundred ms.
 loadConfig()
   .then((cfg) => {
-    setActiveEngine(cfg.engine);
+    setActiveEngine(cfg.engine, cfg.criticEngine);
     // eslint-disable-next-line no-console
-    console.log(`[d2p daemon] engine = ${cfg.engine.kind}`);
+    console.log(
+      `[d2p daemon] engine = ${cfg.engine.kind}` +
+        (cfg.criticEngine ? ` · critic = ${cfg.criticEngine.kind}` : ''),
+    );
   })
   .catch((e) => {
     // eslint-disable-next-line no-console

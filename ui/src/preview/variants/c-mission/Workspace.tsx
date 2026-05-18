@@ -66,12 +66,24 @@ export function WorkspaceC() {
               <p className="text-sm leading-relaxed text-ink mb-4">
                 Every API request should emit a JSON log with <code>request_id</code>, <code>route</code>, <code>status</code>, <code>duration_ms</code>.
               </p>
+
+              {/* F1 — cross-engine critic strip: worker engine vs critic engine,
+                  + cross-family flag so the user can see at-a-glance whether
+                  reviewers are decorrelated from the actor. */}
+              <div className="mb-4 flex items-center gap-2 text-xs">
+                <span className="text-[10px] uppercase tracking-widest text-muted">engines</span>
+                <EnginePill role="worker" family="claude" name="claude-cli · sonnet" />
+                <span className="text-muted">→</span>
+                <EnginePill role="critic" family="openai-compat" name="minimax · M2" />
+                <CrossFamilyBadge crossFamily={true} />
+              </div>
+
               <div className="text-[10px] uppercase tracking-widest text-muted mb-2">pipeline</div>
               <div className="space-y-2">
-                <Stage n="1" name="implementer" model="sonnet" status="done" time="27s" />
-                <Stage n="2" name="static gate" model="local" status="done" time="3s" />
-                <Stage n="3" name="alignment review" model="haiku" status="running" time="8s" />
-                <Stage n="4" name="behavioral review" model="sonnet" status="queued" />
+                <Stage n="1" name="implementer" model="sonnet" engine="claude-cli" role="worker" status="done" time="27s" />
+                <Stage n="2" name="static gate"  model="local"  engine="—"          role="local"  status="done" time="3s" />
+                <Stage n="3" name="alignment review"  model="M2" engine="minimax"     role="critic" status="running" time="8s" />
+                <Stage n="4" name="behavioral review" model="M2" engine="minimax"     role="critic" status="queued" />
               </div>
               <div className="mt-5 text-[10px] uppercase tracking-widest text-muted mb-2">files touched</div>
               <ul className="text-xs font-mono space-y-1 text-muted">
@@ -228,18 +240,56 @@ function GapCard({ slug, sev, attempt, hot, done, warn }: { slug: string; sev: s
     </div>
   );
 }
-function Stage({ n, name, model, status, time }: { n: string; name: string; model: string; status: string; time?: string }) {
+function Stage({ n, name, model, engine, role, status, time }: {
+  n: string; name: string; model: string; engine: string; role: 'worker' | 'critic' | 'local'; status: string; time?: string;
+}) {
   const icon = status === 'done' ? '✓' : status === 'running' ? '⟳' : '·';
   const color = status === 'done' ? 'text-forest' : status === 'running' ? 'text-coral' : 'text-muted/60';
+  const roleColor =
+    role === 'worker' ? 'text-coral bg-coralsoft/40' :
+    role === 'critic' ? 'text-ink bg-warmline' :
+    'text-muted bg-paper';
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${color} border border-current ${status === 'running' ? 'animate-spin' : ''}`}>{icon}</span>
-      <span className="flex-1">
+      <span className="flex-1 flex items-baseline gap-2">
         <span className="text-ink">{name}</span>
-        <span className="text-xs text-muted ml-2">{model}</span>
+        {role !== 'local' && (
+          <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded ${roleColor}`}>{role}</span>
+        )}
+        <span className="text-xs text-muted">{engine !== '—' ? `${engine} · ${model}` : model}</span>
       </span>
       <span className="text-xs text-muted tabular-nums">{time ?? '—'}</span>
     </div>
+  );
+}
+
+function EnginePill({ role, family, name }: { role: 'worker' | 'critic'; family: string; name: string }) {
+  const bg = role === 'worker' ? 'bg-coralsoft/50 border-coral/40 text-ink' : 'bg-warmline/50 border-warmline text-ink';
+  return (
+    <span className={`inline-flex items-baseline gap-1.5 text-xs px-2 py-1 rounded-md border ${bg}`}>
+      <span className="text-[9px] uppercase tracking-wider text-muted">{role}</span>
+      <span className="font-mono">{name}</span>
+      <span className="text-[9px] text-muted/70">{family}</span>
+    </span>
+  );
+}
+
+function CrossFamilyBadge({ crossFamily }: { crossFamily: boolean }) {
+  return crossFamily ? (
+    <span
+      title="reviewer engine family is different from worker — bias decorrelated (OpenHands Critic pattern)"
+      className="inline-flex items-center gap-1 text-[10px] text-forest border border-forest/40 bg-forest/10 px-2 py-1 rounded-md cursor-default"
+    >
+      <span>✓</span> cross-family
+    </span>
+  ) : (
+    <span
+      title="reviewer + worker share an engine family — bias risk; add a 2nd engine in Settings to enable decorrelation"
+      className="inline-flex items-center gap-1 text-[10px] text-rust border border-rust/40 bg-rust/10 px-2 py-1 rounded-md cursor-default"
+    >
+      <span>!</span> cross-family off
+    </span>
   );
 }
 function Spark({ label, pts, color }: { label: string; pts: number[]; color?: 'coral' | 'forest' }) {

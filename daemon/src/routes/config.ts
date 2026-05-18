@@ -33,6 +33,6 @@ configRoutes.post('/', async (c) => {
     );
   }
   await saveConfig(parsed.data);
-  setActiveEngine(parsed.data.engine);
+  setActiveEngine(parsed.data.engine, parsed.data.criticEngine);
   return c.json({ ok: true, config: redactForView(parsed.data) });
 });

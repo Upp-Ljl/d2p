@@ -12,7 +12,7 @@ import { StatusStrip } from '../components/StatusStrip.js';
 import { SessionResumeBanner, mockResumeMark } from '../components/SessionResumeBanner.js';
 
 export function Workspace() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const session = useStore((s) => s.session);
   const demo = useStore((s) => s.demo);
   const loopState = useStore((s) => s.loopState);
@@ -26,6 +26,7 @@ export function Workspace() {
   const startDemoStream = useStore((s) => s.startMultiTurnDemoStream);
   const stopDemo = useStore((s) => s.stopMultiTurnDemo);
   const setSelectedProjectId = useStore((s) => s.setSelectedProjectId);
+  const setSelectedSessionId = useStore((s) => s.setSelectedSessionId);
   const isPaused = session?.status === 'PAUSED';
   const isLooping = session?.status === 'LOOPING';
   const isPausing = loopState?.pauseRequested === true && loopState?.isRunning === true;
@@ -48,12 +49,18 @@ export function Workspace() {
             type="button"
             onClick={() => {
               if (demoMode) stopDemo();
-              setSelectedProjectId(null);
+              // From a real session: pop back to SessionsList (keeps project context).
+              // From demo: clear project entirely to return to home.
+              if (demoMode) {
+                setSelectedProjectId(null);
+              } else {
+                setSelectedSessionId(null);
+              }
             }}
             className="text-xs text-muted hover:text-ink transition-colors font-sans"
             title={t('workspace.demoBack')}
           >
-            {t('workspace.backToProjects')}
+            {demoMode ? t('workspace.backToProjects') : (locale === 'en' ? '← Sessions' : '← Session 列表')}
           </button>
           <div className="w-px h-6 bg-warmline" />
           <div>

@@ -4,8 +4,10 @@ import { agentGamePlatformCommits } from '../mock/agentGamePlatform.js';
 import { mockCommits as _fallbackCommits, mockCheckpoints } from '../mock/sessions.js';
 import { mockRiskByCommitSha } from '../mock/risk.js';
 import { mockDiffByCommitSha } from '../mock/diff.js';
+import { checkpointsForCommit } from '../mock/checkpoints.js';
 import { RiskBadge, riskCardRingClass } from './RiskBadge.js';
 import { CommitDiffDrawer } from './CommitDiffDrawer.js';
+import { CheckpointTimeline } from './CheckpointTimeline.js';
 
 // Use real agent-game-platform commits; fall back to sessions mock if empty.
 const mockCommits = agentGamePlatformCommits.length > 0 ? agentGamePlatformCommits : _fallbackCommits;
@@ -136,22 +138,31 @@ export function CommitsTimeline() {
                   >
                     {t('commits.viewDiff')} →
                   </button>
-                  {checkpoint && (
-                    <span
-                      className="ml-auto text-[11px] text-coral/80 font-mono"
-                      title={checkpoint.description}
-                    >
-                      ⏱ {checkpoint.tag.replace(/^auto:/, '')}
-                    </span>
-                  )}
+                  {(() => {
+                    const cps = checkpointsForCommit(c.sha);
+                    if (cps.length === 0) return null;
+                    const t0 = cps.filter((cp) => cp.pinned || cp.tier === 'T0').length;
+                    return (
+                      <span
+                        className="ml-auto text-[11px] font-mono flex items-center gap-1"
+                        title={`${cps.length} checkpoint${t0 ? ' · ' + t0 + ' T0' : ''}`}
+                      >
+                        <span className="text-muted/60">⏱ {cps.length}</span>
+                        {t0 > 0 && (
+                          <span className="text-rust">· T0 ×{t0}</span>
+                        )}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {isOpen && (
-                  <div className="mt-4 pt-3 border-t border-warmline/60 text-[11px] text-muted">
+                  <div className="mt-4 pt-3 border-t border-warmline/60 space-y-3">
                     {checkpoint && (
-                      <div className="mb-1.5 text-coral/80">{checkpoint.description}</div>
+                      <div className="text-[11px] mb-1.5 text-coral/80">{checkpoint.description}</div>
                     )}
-                    <div className="italic">{t('commits.diffPreview')}</div>
+                    <CheckpointTimeline commitSha={c.sha} hideAuxByDefault={true} />
+                    <div className="text-[11px] text-muted italic">{t('commits.diffPreview')}</div>
                   </div>
                 )}
               </div>

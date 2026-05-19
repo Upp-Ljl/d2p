@@ -7,6 +7,7 @@ import { Workspace } from './pages/Workspace.js';
 import { Done } from './pages/Done.js';
 import { Settings } from './pages/Settings.js';
 import { Preview, readPreviewParam } from './preview/Preview.js';
+import { SessionsList } from './components/SessionsList.js';
 
 export function App() {
   // Preview mode short-circuits production routing entirely — no daemon poll,
@@ -25,6 +26,7 @@ export function App() {
   const setShowSettings = useStore((s) => s.setShowSettings);
   const demoMode = useStore((s) => s.multiTurnDemoMode);
   const selectedProjectId = useStore((s) => s.selectedProjectId);
+  const selectedSessionId = useStore((s) => s.selectedSessionId);
 
   if (showSettings) {
     return <Settings onClose={() => setShowSettings(false)} />;
@@ -39,17 +41,20 @@ export function App() {
     session && (session.status === 'ENDED' || session.status === 'DONE') && !summaryMdPath;
 
   // Multi-project routing:
-  //   default → Landing (ProjectsHome 卡片网格)
-  //   user opens a project (selectedProjectId set) → drill into Setup /
-  //   Workspace / Done depending on that project's session state
-  //   demoMode → straight to Workspace with mock data
+  //   default                                          → Landing (ProjectsHome)
+  //   selectedProjectId set, no selectedSessionId      → SessionsList
+  //   selectedProjectId + selectedSessionId set        → Workspace (real session)
+  //   demoMode                                         → Workspace (mock canvas)
+  //   Real session flows (SETUP / DONE) still pick up when daemon has them.
   let body;
   if (demoMode) {
     body = <Workspace />;
   } else if (selectedProjectId == null) {
     body = <Landing />;
+  } else if (selectedSessionId == null) {
+    body = <SessionsList />;
   } else if (!session || isTerminalAndStale) {
-    body = <Landing />;
+    body = <Workspace />;
   } else if (session.status === 'SETUP') {
     body = <Setup />;
   } else if (session.status === 'LOOPING' || session.status === 'PAUSED') {

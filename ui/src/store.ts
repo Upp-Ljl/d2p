@@ -73,10 +73,14 @@ interface Store {
   // ui chrome
   showSettings: boolean;
   setShowSettings: (b: boolean) => void;
-  /** Set when the user clicks a project on ProjectsHome → enter Workspace.
-   *  null means stay on ProjectsHome (default home for multi-project users). */
+  /** Set when the user clicks a project on ProjectsHome → enter SessionsList.
+   *  null means stay on ProjectsHome. */
   selectedProjectId: number | null;
   setSelectedProjectId: (id: number | null) => void;
+  /** Set when the user clicks a session on SessionsList → enter Workspace.
+   *  null at SessionsList level. */
+  selectedSessionId: number | null;
+  setSelectedSessionId: (id: number | null) => void;
   /** UI language. Loaded from localStorage on bootstrap; takes effect
    *  immediately on switch and is persisted across reloads. */
   locale: Locale;
@@ -283,7 +287,9 @@ export const useStore = create<Store>((set, get) => ({
   showSettings: false,
   setShowSettings: (b) => set({ showSettings: b }),
   selectedProjectId: null,
-  setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+  setSelectedProjectId: (id) => set({ selectedProjectId: id, selectedSessionId: null }),
+  selectedSessionId: null,
+  setSelectedSessionId: (id) => set({ selectedSessionId: id }),
   locale: loadInitialLocale(),
   setLocale: (l) => {
     persistLocale(l);

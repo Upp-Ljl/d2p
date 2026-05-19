@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { mockCommits, mockCheckpoints } from '../mock/sessions.js';
+import { agentGamePlatformCommits } from '../mock/agentGamePlatform.js';
+import { mockCommits as _fallbackCommits, mockCheckpoints } from '../mock/sessions.js';
+import { mockRiskByCommitSha } from '../mock/risk.js';
+import { mockDiffByCommitSha } from '../mock/diff.js';
+import { RiskBadge, riskCardRingClass } from './RiskBadge.js';
+import { CommitDiffDrawer } from './CommitDiffDrawer.js';
+
+// Use real agent-game-platform commits; fall back to sessions mock if empty.
+const mockCommits = agentGamePlatformCommits.length > 0 ? agentGamePlatformCommits : _fallbackCommits;
 
 // Floating cards on a vertical timeline. No grid lines. Each commit card
 // has primary actions (rewind / diff) inline + reviewer verdict chips.
@@ -11,7 +19,9 @@ function fmtRelative(ts: number): string {
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m 前`;
   const h = Math.floor(m / 60);
-  return `${h}h 前`;
+  if (h < 24) return `${h}h 前`;
+  const d = Math.floor(h / 24);
+  return `${d}d 前`;
 }
 
 const VERDICT_BADGE: Record<'pass' | 'fail' | 'partial', { label: string; cls: string }> = {
@@ -29,6 +39,15 @@ const REVIEW_KIND_LABEL: Record<'alignment' | 'behavioral' | 'adversarial', stri
 export function CommitsTimeline() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [rewindTarget, setRewindTarget] = useState<string | null>(null);
+  const [diffTarget, setDiffTarget] = useState<string | null>(null);
+
+  const diffCommit = diffTarget ? mockCommits.find((c) => c.sha === diffTarget) ?? null : null;
+  const diffFiles = diffTarget
+    ? (mockDiffByCommitSha[diffTarget] ?? mockDiffByCommitSha[diffTarget.slice(0, 7)] ?? [])
+    : [];
+  const diffRisk = diffTarget
+    ? (mockRiskByCommitSha[diffTarget] ?? mockRiskByCommitSha[diffTarget.slice(0, 7)])
+    : undefined;
 
   return (
     <div className="h-full overflow-y-auto" data-testid="commits-timeline">
@@ -42,6 +61,9 @@ export function CommitsTimeline() {
           const isOpen = expanded === c.sha;
           const checkpoint = mockCheckpoints.find((cp) => cp.commitSha === c.sha);
           const isLast = idx === mockCommits.length - 1;
+          const risk = mockRiskByCommitSha[c.sha] ?? mockRiskByCommitSha[c.shortSha];
+          const ringClass = riskCardRingClass(risk);
+
           return (
             <li
               key={c.sha}
@@ -55,11 +77,12 @@ export function CommitsTimeline() {
                 <span className="absolute left-[15px] top-9 bottom-[-16px] w-px bg-warmline" />
               )}
 
-              <div className="bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-5 py-4 lift-on-hover">
-                <div className="flex items-baseline gap-2 mb-1">
+              <div className={`bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-5 py-4 lift-on-hover ${ringClass}`}>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-mono text-sage-600 text-xs">{c.shortSha}</span>
                   <span className="text-sm text-ink font-medium flex-1 line-clamp-1">{c.gapTitle}</span>
                   <span className="text-[11px] text-muted/60 font-sans">{fmtRelative(c.ts)}</span>
+                  {risk && <RiskBadge risk={risk} />}
                 </div>
 
                 <div className="text-xs text-muted/80 mb-3 line-clamp-1">{c.message}</div>
@@ -80,7 +103,7 @@ export function CommitsTimeline() {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => setRewindTarget(c.sha)}
@@ -95,7 +118,15 @@ export function CommitsTimeline() {
                     className="text-xs px-3 py-1.5 rounded-lg text-muted hover:text-ink hover:bg-paper transition-colors font-sans"
                     onClick={() => setExpanded(isOpen ? null : c.sha)}
                   >
-                    {isOpen ? '收起' : '看 diff'} {isOpen ? '▴' : '▾'}
+                    {isOpen ? '收起' : '详情'} {isOpen ? '▴' : '▾'}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-paper text-ink hover:bg-coralsoft hover:text-coral transition-colors font-sans"
+                    onClick={() => setDiffTarget(c.sha)}
+                    data-testid={`open-diff-${c.shortSha}`}
+                  >
+                    看 diff →
                   </button>
                   {checkpoint && (
                     <span
@@ -112,7 +143,7 @@ export function CommitsTimeline() {
                     {checkpoint && (
                       <div className="mb-1.5 text-coral/80">{checkpoint.description}</div>
                     )}
-                    <div className="italic">演示模式 · 真版本会在这里渲染 diff 详情</div>
+                    <div className="italic">演示模式 · 点"看 diff →"打开完整 diff 抽屉</div>
                   </div>
                 )}
               </div>
@@ -126,6 +157,16 @@ export function CommitsTimeline() {
           commit={mockCommits.find((c) => c.sha === rewindTarget)!}
           onCancel={() => setRewindTarget(null)}
           onConfirm={() => setRewindTarget(null)}
+        />
+      )}
+
+      {diffTarget && diffCommit && (
+        <CommitDiffDrawer
+          sha={diffCommit.sha}
+          message={diffCommit.message}
+          files={diffFiles}
+          risk={diffRisk}
+          onClose={() => setDiffTarget(null)}
         />
       )}
     </div>

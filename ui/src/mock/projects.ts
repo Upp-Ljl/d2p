@@ -26,6 +26,24 @@ const h = (hours: number) => NOW - hours * 60 * 60_000;
 const d = (days: number) => NOW - days * 24 * 60 * 60_000;
 
 export const mockProjects: ProjectSummary[] = [
+  // 真实试验场 — D:\lll\managed-projects\agent-game-platform (GitHub: anzy-renlab-ai/agent-game-platform)
+  // commit/path/msg 来自真 git log
+  {
+    id: 8,
+    name: 'agent-game-platform',
+    path: 'D:\\lll\\managed-projects\\agent-game-platform',
+    inferredType: 'saas-web',
+    status: 'looping',
+    agentsWorking: 1,
+    agentsTotal: 7,
+    presetDone: 24,
+    presetTotal: 32,
+    visionVerdict: 'partial',
+    lastCommitTs: m(15),
+    lastCommitMsg: 'feat(polish): Mode A iter-2 §5 — achievements + events + themes (FINAL)',
+    costUsd: 2.84,
+    pinned: true,
+  },
   {
     id: 7,
     name: 'notes-saas',
@@ -40,7 +58,7 @@ export const mockProjects: ProjectSummary[] = [
     lastCommitTs: m(4),
     lastCommitMsg: 'feat(env): document 6 env vars in .env.example',
     costUsd: 1.27,
-    pinned: true,
+    pinned: false,
   },
   {
     id: 6,

@@ -5,6 +5,8 @@ import { RunLog } from './RunLog.js';
 import { PresetChecklistView } from './PresetChecklistView.js';
 import { CountUp } from './CountUp.js';
 import { mockPresetItemsRich } from '../mock/data.js';
+import { MilestonesPanel } from './MilestonesPanel.js';
+import { mockMilestones, getMilestoneKpi } from '../mock/milestones.js';
 
 // One-line KPI bar that lives between the Workspace header and the main
 // canvas. Each pill is a tappable drawer:
@@ -13,7 +15,7 @@ import { mockPresetItemsRich } from '../mock/data.js';
 //   日志: opens RunLog
 // Cost / engine status are read-only summaries.
 
-type DrawerKind = 'gaps' | 'preset' | 'log';
+type DrawerKind = 'gaps' | 'preset' | 'log' | 'milestones';
 
 export function StatusStrip() {
   const session = useStore((s) => s.session);
@@ -33,6 +35,8 @@ export function StatusStrip() {
   const gapsInProgress = gaps.filter((g) => g.status === 'IN_PROGRESS').length;
   const gapsPending = gaps.filter((g) => g.status === 'PENDING').length;
   const gapsComplex = gaps.filter((g) => g.complexity === 'complex').length;
+
+  const milestoneKpi = getMilestoneKpi(mockMilestones);
 
   return (
     <>
@@ -72,6 +76,32 @@ export function StatusStrip() {
 
         <div className="flex-1" />
 
+        {/* Milestone KPI */}
+        <button
+          type="button"
+          aria-expanded={open === 'milestones'}
+          onClick={() => setOpen(open === 'milestones' ? null : 'milestones')}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 ease-out-quart ${
+            open === 'milestones'
+              ? 'bg-forest/15 ring-1 ring-forest/30'
+              : 'hover:bg-paper hover:-translate-y-0.5 ring-1 ring-transparent cursor-pointer'
+          }`}
+          title="查看 milestone 进度"
+          data-testid="milestone-kpi"
+        >
+          <span className="text-[10px] uppercase tracking-widest text-muted/60">里程碑</span>
+          <span className="font-mono text-sm text-ink">
+            <span className="text-forest font-medium">{milestoneKpi.done}</span>
+            <span className="text-muted/50"> / {milestoneKpi.total}</span>
+          </span>
+          <div className="w-12 h-1.5 bg-warmline rounded-full overflow-hidden">
+            <div
+              className="h-full bg-forest rounded-full transition-all duration-700"
+              style={{ width: `${milestoneKpi.pct}%` }}
+            />
+          </div>
+        </button>
+
         <Kpi
           label="日志"
           value="详细事件"
@@ -102,6 +132,13 @@ export function StatusStrip() {
         <Drawer onClose={() => setOpen(null)} title="详细事件日志">
           <div className="h-full overflow-hidden">
             <RunLog />
+          </div>
+        </Drawer>
+      )}
+      {open === 'milestones' && (
+        <Drawer onClose={() => setOpen(null)} title="Milestone 进度">
+          <div className="h-full overflow-hidden overflow-y-auto">
+            <MilestonesPanel onClose={() => setOpen(null)} />
           </div>
         </Drawer>
       )}

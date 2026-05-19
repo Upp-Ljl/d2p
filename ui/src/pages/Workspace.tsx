@@ -8,6 +8,7 @@ import { MultiTurnPanel, isMultiTurnActive } from '../components/MultiTurnPanel.
 import { SessionsBoard } from '../components/SessionsBoard.js';
 import { CommitsTimeline } from '../components/CommitsTimeline.js';
 import { StatusStrip } from '../components/StatusStrip.js';
+import { SessionResumeBanner, mockResumeMark } from '../components/SessionResumeBanner.js';
 
 export function Workspace() {
   const session = useStore((s) => s.session);
@@ -32,6 +33,10 @@ export function Workspace() {
   const mtActive = isMultiTurnActive(multiTurn);
   const [forceShowQueue, setForceShowQueue] = useState(false);
   const showMultiTurnFullscreen = mtActive && !forceShowQueue;
+
+  // Demo-mode resume mark — shows SessionResumeBanner at top when non-null.
+  const [resumeDismissed, setResumeDismissed] = useState(false);
+  const showResumeBanner = demoMode && !resumeDismissed && mockResumeMark !== null;
 
   return (
     <div className="h-screen flex flex-col bg-paper">
@@ -89,6 +94,16 @@ export function Workspace() {
         <div className="bg-coral/10 border-b border-coral/30 text-coral text-xs font-sans px-6 py-1.5 text-center">
           演示模式 · multi-turn 是 mock 数据驱动 · 真任务跑起来形态一样 · 点「退出演示」回去
         </div>
+      )}
+      {showResumeBanner && mockResumeMark && (
+        <SessionResumeBanner
+          gapTitle={mockResumeMark.gapTitle}
+          gapSlug={mockResumeMark.gapSlug}
+          pausedHoursAgo={mockResumeMark.pausedHoursAgo}
+          onResume={() => setResumeDismissed(true)}
+          onDiscard={() => setResumeDismissed(true)}
+          onLater={() => setResumeDismissed(true)}
+        />
       )}
 
       {isPaused && (

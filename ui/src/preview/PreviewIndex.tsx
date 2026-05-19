@@ -131,6 +131,26 @@ export function PreviewIndex() {
           </div>
         </section>
 
+        <section className="mt-10 pt-6 border-t border-warmline">
+          <div className="text-xs font-mono text-coral uppercase tracking-widest mb-2">component preview</div>
+          <h2 className="text-2xl tracking-tight mb-3">Git pro + 长程任务</h2>
+          <p className="text-muted mb-5 leading-relaxed text-sm max-w-2xl">
+            4 个 feature mockup：diff 抽屉、AI risk badge、核心路径保护、session resume + milestone 进度。
+            数据来自真实试验场 <code className="not-italic font-mono">anzy-renlab-ai/agent-game-platform</code>。
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {(['diff', 'risk', 'core-paths-alert', 'core-paths-config', 'milestones', 'resume'] as const).map((k) => (
+              <a
+                key={k}
+                href={`?preview=git-pro/${k}`}
+                className="px-4 py-2 rounded-md border border-warmline bg-cream hover:border-coral hover:bg-coralsoft/30 text-sm transition-colors font-mono"
+              >
+                git-pro / {k}
+              </a>
+            ))}
+          </div>
+        </section>
+
         <div className="mt-12 text-xs text-muted/70 font-serif italic">
           Production app stays at <code className="not-italic">/</code>; previews are URL-gated only.
         </div>

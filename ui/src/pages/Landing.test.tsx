@@ -15,6 +15,7 @@ beforeEach(() => {
       uptimeMs: 100,
     },
     healthError: null,
+    locale: 'zh',
     startSession: vi.fn(async () => {}),
   });
 });

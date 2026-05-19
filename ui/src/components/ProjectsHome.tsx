@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from './Button.js';
 import { CountUp } from './CountUp.js';
+import { useLocale } from '../i18n/useLocale.js';
 import {
   mockProjects,
   STATUS_META,
@@ -48,6 +49,7 @@ export interface ProjectsHomeProps {
 }
 
 export function ProjectsHome({ onOpenProject, onAddProject, onDemoMode }: ProjectsHomeProps) {
+  const { t } = useLocale();
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
 
   const filtered = mockProjects.filter((p) => {
@@ -68,21 +70,21 @@ export function ProjectsHome({ onOpenProject, onAddProject, onDemoMode }: Projec
       <div className="max-w-6xl mx-auto pt-12 pb-16 px-8">
         <header className="mb-10 flex items-start justify-between gap-8">
           <div>
-            <h1 className="text-5xl tracking-tight text-ink">d2p</h1>
+            <h1 className="text-5xl tracking-tight text-ink">{t('app.title')}</h1>
             <p className="text-lg text-muted mt-3 font-serif italic">
-              把每个 demo 推到 product。
+              {t('app.tagline')}
             </p>
             <div className="text-sm text-muted mt-4 flex items-center gap-4 font-sans">
               <span>
-                <CountUp value={mockProjects.length} className="text-ink font-medium" /> 个项目
+                <CountUp value={mockProjects.length} className="text-ink font-medium" /> {t('home.summary.projects')}
               </span>
               <span className="text-muted/40">·</span>
               <span className="text-coral">
-                <CountUp value={activeCount} className="font-medium" /> 在跑
+                <CountUp value={activeCount} className="font-medium" /> {t('home.summary.running')}
               </span>
               <span className="text-muted/40">·</span>
               <span>
-                累计花费{' '}
+                {t('home.summary.cost')}{' '}
                 <CountUp
                   value={totalCost}
                   format={(n) => `$${n.toFixed(2)}`}
@@ -92,7 +94,7 @@ export function ProjectsHome({ onOpenProject, onAddProject, onDemoMode }: Projec
             </div>
           </div>
           <Button variant="primary" onClick={onAddProject}>
-            + 新建项目
+            {t('home.newProject')}
           </Button>
         </header>
 
@@ -109,7 +111,7 @@ export function ProjectsHome({ onOpenProject, onAddProject, onDemoMode }: Projec
                     : 'text-muted hover:text-ink hover:bg-warmline/40'
                 }`}
               >
-                {f === 'all' ? '全部' : f === 'active' ? '活跃' : '已完工'}
+                {f === 'all' ? t('home.filter.all') : f === 'active' ? t('home.filter.active') : t('home.filter.done')}
                 <span className={`ml-1.5 ${filter === f ? 'text-cream/60' : 'text-muted/50'}`}>
                   {f === 'all'
                     ? mockProjects.length
@@ -125,7 +127,7 @@ export function ProjectsHome({ onOpenProject, onAddProject, onDemoMode }: Projec
             onClick={onDemoMode}
             className="text-xs text-coral hover:text-rust transition-colors font-sans"
           >
-            试看 multi-turn 演示 →
+            {t('home.tryDemo')}
           </button>
         </div>
 
@@ -230,6 +232,7 @@ function ProjectCard({ project: p, onClick }: { project: ProjectSummary; onClick
 }
 
 function AddProjectCard({ onClick, stagger }: { onClick: () => void; stagger: number }) {
+  const { t } = useLocale();
   return (
     <div className="anim-stagger" style={{ ['--i' as 'width']: stagger as unknown as string }}>
       <button
@@ -239,8 +242,8 @@ function AddProjectCard({ onClick, stagger }: { onClick: () => void; stagger: nu
         className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-warmline text-muted hover:border-coral hover:text-coral transition-colors duration-200 ease-out-quart bg-paper/30"
       >
         <span className="text-3xl">+</span>
-        <span className="text-sm font-sans">新建项目</span>
-        <span className="text-[11px] text-muted/60 font-serif italic">给个文件夹路径，d2p 接手</span>
+        <span className="text-sm font-sans">{t('home.newProject').replace(/^\+ /, '')}</span>
+        <span className="text-[11px] text-muted/60 font-serif italic">{t('home.addProjectHint')}</span>
       </button>
     </div>
   );

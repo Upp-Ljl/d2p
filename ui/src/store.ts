@@ -17,6 +17,8 @@ import { api, openLogStream, openCcStream } from './api.js';
 import type { MultiTurnTurn, MultiTurnPhase, ScratchpadNote } from './types.js';
 import { mockStoreFor } from './mock/data.js';
 import { startMockMultiTurnStream, mockMultiTurnIdle } from './mock/multiTurn.js';
+import { loadInitialLocale, persistLocale } from './i18n/useLocale.js';
+import type { Locale } from './i18n/locale.js';
 
 interface Store {
   // health
@@ -76,6 +78,10 @@ interface Store {
    *  null means stay on ProjectsHome (default home for multi-project users). */
   selectedProjectId: number | null;
   setSelectedProjectId: (id: number | null) => void;
+  /** UI language. Loaded from localStorage on bootstrap; takes effect
+   *  immediately on switch and is persisted across reloads. */
+  locale: Locale;
+  setLocale: (l: Locale) => void;
 
   // actions
   refreshHealth: () => Promise<void>;
@@ -279,6 +285,11 @@ export const useStore = create<Store>((set, get) => ({
   setShowSettings: (b) => set({ showSettings: b }),
   selectedProjectId: null,
   setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+  locale: loadInitialLocale(),
+  setLocale: (l) => {
+    persistLocale(l);
+    set({ locale: l });
+  },
 
   async refreshHealth() {
     try {

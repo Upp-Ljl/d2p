@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Button } from '../components/Button.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
 import { useStore } from '../store.js';
+import { useLocale } from '../i18n/useLocale.js';
+import { LOCALES, type Locale } from '../i18n/locale.js';
 
 type EngineKind = 'claude-cli' | 'openai-compat' | 'anthropic-api';
 
@@ -95,6 +97,7 @@ const PRESETS: { label: string; baseUrl: string; models: ModelMap; extraHeaders?
 ];
 
 export function Settings({ onClose }: { onClose?: () => void }) {
+  const { t, locale, setLocale } = useLocale();
   const [form, setForm] = useState<FormState>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -213,23 +216,56 @@ export function Settings({ onClose }: { onClose?: () => void }) {
     }
   }
 
-  if (loading) return <div className="p-8 text-muted">加载中…</div>;
+  if (loading) return <div className="p-8 text-muted">{locale === 'en' ? 'Loading…' : '加载中…'}</div>;
 
   return (
     <div className="min-h-screen bg-paper">
       <div className="max-w-3xl mx-auto py-12 px-8">
         <header className="flex items-end justify-between mb-10 pb-6 border-b border-warmline">
           <div>
-            <h1 className="text-3xl tracking-tight">设置</h1>
-            <p className="text-sm text-muted mt-1">引擎、模型、GitHub — 所有 key 只存在本地。</p>
+            <h1 className="text-3xl tracking-tight">{t('settings.title')}</h1>
+            <p className="text-sm text-muted mt-1">{locale === 'en' ? 'Engine, models, GitHub — all keys live locally only.' : '引擎、模型、GitHub — 所有 key 只存在本地。'}</p>
           </div>
           {onClose && (
-            <Button variant="ghost" onClick={onClose}>← 返回</Button>
+            <Button variant="ghost" onClick={onClose}>{locale === 'en' ? '← Back' : '← 返回'}</Button>
           )}
         </header>
 
+        {/* Language section — first, since the user is here for it */}
+        <section className="card mb-6" data-testid="settings-language">
+          <div className="card-header">{t('settings.section.language')}</div>
+          <div className="p-6 space-y-3">
+            <p className="text-xs text-muted mb-2">{t('settings.languageHint')}</p>
+            <div className="grid grid-cols-2 gap-3 max-w-md">
+              {LOCALES.map(({ id, label, native }) => (
+                <label
+                  key={id}
+                  className={`cursor-pointer rounded-lg border p-3 transition-colors flex items-center gap-3 lift-on-hover ${
+                    locale === id
+                      ? 'border-coral bg-coralsoft/40 ring-1 ring-coral/30'
+                      : 'border-warmline hover:border-coral/50'
+                  }`}
+                  data-testid={`locale-option-${id}`}
+                >
+                  <input
+                    type="radio"
+                    name="locale"
+                    checked={locale === id}
+                    onChange={() => setLocale(id as Locale)}
+                    className="accent-coral"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-ink">{native}</div>
+                    <div className="text-[11px] text-muted font-sans">{label}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="card mb-6">
-          <div className="card-header">LLM 引擎</div>
+          <div className="card-header">{t('settings.section.engine')}</div>
           <div className="p-6 space-y-5">
             <div className="grid grid-cols-3 gap-3">
               {(

@@ -3,9 +3,11 @@ import { useStore } from '../store.js';
 import { Button } from '../components/Button.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
 import { ProjectsHome } from '../components/ProjectsHome.js';
+import { useLocale } from '../i18n/useLocale.js';
 import type { ProjectSummary } from '../mock/projects.js';
 
 export function Landing() {
+  const { t } = useLocale();
   const startSession = useStore((s) => s.startSession);
   const startDemo = useStore((s) => s.startMultiTurnDemo);
   const setSelectedProjectId = useStore((s) => s.setSelectedProjectId);
@@ -26,7 +28,7 @@ export function Landing() {
   async function onStart() {
     setError(null);
     if (!path.trim()) {
-      setError('请填一个绝对路径');
+      setError(t('home.modal.emptyPath'));
       return;
     }
     setBusy(true);
@@ -84,17 +86,15 @@ export function Landing() {
             className="bg-cream rounded-2xl shadow-cardHover max-w-lg w-full p-6 space-y-4 mx-4 anim-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-xl font-medium text-ink">新建项目</div>
-            <p className="text-sm text-muted">
-              给个本地文件夹路径，d2p 自动 init git、识别项目类型、问你 vision，然后接手。
-            </p>
+            <div className="text-xl font-medium text-ink">{t('home.modal.title')}</div>
+            <p className="text-sm text-muted">{t('home.modal.desc')}</p>
             <div>
-              <label className="label">Demo 文件夹（绝对路径）</label>
+              <label className="label">{t('home.modal.label')}</label>
               <input
                 type="text"
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
-                placeholder={navigator.platform.startsWith('Win') ? 'D:\\demos\\my-saas' : '/Users/me/demos/my-saas'}
+                placeholder={t('home.modal.placeholder')}
                 className="input input-mono text-base py-3"
                 spellCheck={false}
                 autoFocus
@@ -110,15 +110,15 @@ export function Landing() {
                 onClick={() => setShowAdd(false)}
                 className="px-4 py-2 text-sm text-muted hover:text-ink transition-colors font-sans"
               >
-                取消
+                {t('home.modal.cancel')}
               </button>
               <Button
                 onClick={() => void onStart()}
                 disabled={!health}
                 loading={busy}
-                loadingText="新建 session 中…"
+                loadingText={t('home.modal.busy')}
               >
-                开始 →
+                {t('home.modal.start')}
               </Button>
             </div>
           </div>

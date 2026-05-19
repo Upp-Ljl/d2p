@@ -46,8 +46,12 @@ import type { Gap as GapType } from '../types.js';
 // new actionable gaps. We do NOT cap differ passes — instead we detect
 // stuck loops (no new slugs across consecutive empty-differ rounds) and
 // pause for the user to decide.
-const MAX_ITERATIONS = 500;
+const DEFAULT_MAX_ITERATIONS = 500;
 const STUCK_THRESHOLD = 2; // empty-differ rounds in a row → pause
+
+// Auto-stop defaults — overridable via AppConfig.loopCaps.
+const DEFAULT_WALL_CLOCK_HOURS = 2;
+const DEFAULT_MAX_CONSECUTIVE_ESCALATES = 5;
 
 export interface LoopDeps {
   queries: Queries;
@@ -229,7 +233,7 @@ async function processGap(ctx: LoopCtx, gap: Gap): Promise<void> {
   let kBudget = gap.dynamicK ?? DEFAULT_KBUDGET; // bumped after first behavioral if needed
 
   let attempt = q.nextAttemptNumber(gap.id);
-  for (; attempt <= MAX_ITERATIONS; attempt++) {
+  for (; attempt <= DEFAULT_MAX_ITERATIONS; attempt++) {
     if (loopController.pauseRequested()) {
       emit(q, session.id, 'LOOP_PAUSED', { reason: 'user_request_mid_gap' });
       return;
@@ -719,6 +723,18 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
     typecheck: 'npx tsc --noEmit',
   }));
 
+  // Load loop caps from config (with sensible defaults). These are the
+  // "auto-stop" knobs — without them an unbounded run keeps differing new
+  // gaps until cost runs away. wallClock + consecutiveEscalates are the
+  // primary user-facing safeguards; maxIterations is a catastrophic backstop.
+  const cfg = await loadConfig();
+  const wallClockMs = (cfg.loopCaps?.wallClockHours ?? DEFAULT_WALL_CLOCK_HOURS) * 3600_000;
+  const maxConsecutiveEscalates =
+    cfg.loopCaps?.maxConsecutiveEscalates ?? DEFAULT_MAX_CONSECUTIVE_ESCALATES;
+  const maxIterations = cfg.loopCaps?.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  const hardCostUsd = cfg.costBudget?.hardUsd ?? null;
+  const loopStartTs = Date.now();
+
   const ctx: LoopCtx = {
     q,
     session: q.getSession(sessionId)!,
@@ -729,10 +745,61 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
   };
 
   let emptyDifferStreak = 0;
-  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+  let escalateStreak = 0;
+  for (let iter = 0; iter < maxIterations; iter++) {
     if (loopController.pauseRequested()) {
       q.transitionSession(session.id, 'PAUSED');
       emit(q, session.id, 'LOOP_PAUSED', { reason: 'user_request' });
+      stopWatching(session.id);
+      return;
+    }
+
+    // Wall-clock cap.
+    const elapsedMs = Date.now() - loopStartTs;
+    if (elapsedMs > wallClockMs) {
+      q.transitionSession(session.id, 'PAUSED');
+      emit(
+        q,
+        session.id,
+        'LOOP_PAUSED',
+        { reason: 'wall_clock_cap', elapsedMs, capMs: wallClockMs },
+        'warn',
+      );
+      stopWatching(session.id);
+      return;
+    }
+
+    // Hard cost cap (the soft / downgrade path is enforced inside the agent
+    // dispatch via checkBudget — see budget/cap.ts). Hard breach is
+    // catastrophic; we don't continue.
+    if (hardCostUsd != null) {
+      const spent = q.costTotals(session.id, PRICING_PER_MTOK).estimatedUsd;
+      if (spent >= hardCostUsd) {
+        q.transitionSession(session.id, 'PAUSED');
+        emit(
+          q,
+          session.id,
+          'LOOP_PAUSED',
+          { reason: 'cost_cap', spentUsd: spent, capUsd: hardCostUsd },
+          'warn',
+        );
+        stopWatching(session.id);
+        return;
+      }
+    }
+
+    // Consecutive escalate streak — N gaps in a row landed NEED_HUMAN
+    // without a single MERGED. Pause and surface to the user rather than
+    // burning more cost on a clearly-stuck pipeline.
+    if (escalateStreak >= maxConsecutiveEscalates) {
+      q.transitionSession(session.id, 'PAUSED');
+      emit(
+        q,
+        session.id,
+        'LOOP_PAUSED',
+        { reason: 'consecutive_escalates', escalateStreak, cap: maxConsecutiveEscalates },
+        'warn',
+      );
       stopWatching(session.id);
       return;
     }
@@ -747,7 +814,18 @@ export async function runLoop(deps: LoopDeps, sessionId: number): Promise<void> 
 
     const head = q.pickHeadGap(session.id);
     if (head) {
+      const headIdBefore = head.id;
       await processGap(ctx, head);
+      // Update escalate streak: if the gap landed MERGED reset to 0;
+      // if it ended NEED_HUMAN / DROPPED bump streak.
+      const after = q.getGap(headIdBefore);
+      if (after) {
+        if (after.status === 'DONE') {
+          escalateStreak = 0;
+        } else if (after.status === 'NEED_HUMAN' || after.status === 'SKIPPED') {
+          escalateStreak += 1;
+        }
+      }
       continue;
     }
 

@@ -62,16 +62,29 @@ export interface CostBudget {
   onSoftBreach: 'downgrade' | 'pause';
 }
 
+/** Loop-level auto-stop conditions, layered on top of CostBudget. */
+export interface LoopCaps {
+  /** Pause when wall-clock since LOOP_STARTED exceeds this. Default 2h. */
+  wallClockHours?: number;
+  /** Pause when N gaps in a row escalate to NEED_HUMAN with no MERGED in
+   *  between. Default 5. */
+  maxConsecutiveEscalates?: number;
+  /** Override the catastrophic safety net iteration cap. Default 500. */
+  maxIterations?: number;
+}
+
 export interface AppConfig {
   /** The worker — runs detector, vision, differ, implementer, repo-summary. */
   engine: EngineConfig;
   /** Optional second engine used by reviewer roles (alignment, behavioral,
-   *  adversarial, done-check). If unset OR same family as `engine`, d2p
+   *  adversarial, done-check). If unset OR same family as `engine`, ZeroU
    *  proceeds in degraded mode and surfaces a "cross-family OFF" warning in
    *  the UI. See engines/router.ts for the policy. */
   criticEngine?: EngineConfig;
   /** Optional F6 budget cap. Omit to opt out (unbounded). */
   costBudget?: CostBudget;
+  /** Optional loop auto-stop conditions (wall-clock / consecutive escalate). */
+  loopCaps?: LoopCaps;
   github?: GitHubConfig;
 }
 

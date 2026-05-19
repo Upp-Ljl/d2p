@@ -288,6 +288,14 @@ export class Queries {
     return row ? gapFromRow(row) : null;
   }
 
+  /** Look up a single gap by id. Returns null when not found. */
+  getGap(gapId: number): Gap | null {
+    const row = this.db.prepare('SELECT * FROM gaps WHERE id = ?').get(gapId) as
+      | GapRow
+      | undefined;
+    return row ? gapFromRow(row) : null;
+  }
+
   listGaps(sessionId: number, status?: GapStatus[]): Gap[] {
     if (status && status.length > 0) {
       const placeholders = status.map(() => '?').join(',');

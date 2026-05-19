@@ -53,12 +53,20 @@ const CostBudgetSchema = z.object({
   onSoftBreach: z.enum(['downgrade', 'pause']).default('downgrade'),
 }).refine((b) => b.hardUsd >= b.softUsd, { message: 'hardUsd must be >= softUsd' });
 
+const LoopCapsSchema = z.object({
+  wallClockHours: z.number().positive().optional(),
+  maxConsecutiveEscalates: z.number().int().positive().optional(),
+  maxIterations: z.number().int().positive().optional(),
+});
+
 export const AppConfigSchema = z.object({
   engine: EngineSchema,
   /** F1: optional second engine used by reviewer roles (cross-family critic). */
   criticEngine: EngineSchema.optional(),
   /** F6: optional cost budget cap. */
   costBudget: CostBudgetSchema.optional(),
+  /** Loop auto-stop conditions (wall-clock / escalate streak / iterations). */
+  loopCaps: LoopCapsSchema.optional(),
   github: GitHubSchema.optional(),
 });
 

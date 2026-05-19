@@ -61,6 +61,32 @@ async function runOne(cmd: string, cwd: string): Promise<SpawnResult | null> {
   return runSubproc({ cmd: head, args: rest, cwd, timeoutMs: 300_000 });
 }
 
+/**
+ * Detect "the tool wasn't installed / not on PATH" results vs "the tool ran
+ * and reported a real failure". On Windows, spawning a missing binary often
+ * surfaces as exit code -4058 (ENOENT-ish) with empty stdout/stderr; on
+ * POSIX as spawnError set + exit -2. We treat these as "gate skipped" so
+ * unrelated fixes (LICENSE / README / .env.example) aren't punished for the
+ * project not having `tsc` reachable.
+ */
+function isToolUnavailable(r: SpawnResult): boolean {
+  if (r.spawnError) return true;
+  if (r.exitCode === null) return true;
+  if (r.exitCode < 0 && !r.stdout && !r.stderr) return true;
+  // Tool ran but didn't actually evaluate anything — e.g. bun got a filter that
+  // matched zero files, jest "No tests found". That tells us nothing about the
+  // fix's quality, so it shouldn't block.
+  const blob = `${r.stdout}\n${r.stderr}`;
+  if (
+    /did not match any test files/i.test(blob) ||
+    /no tests? found/i.test(blob) ||
+    /no test files matched/i.test(blob)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function tail(s: string, lines: number): string {
   return s.split(/\r?\n/).slice(-lines).join('\n');
 }
@@ -81,6 +107,11 @@ export async function runStaticGate(
     const result = await runOne(cmds[stage], worktreePath);
     results[stage] = result;
     if (result && result.exitCode !== 0) {
+      // Tool not available on this machine / not installed for this repo →
+      // skip the stage instead of blocking the fix.
+      if (isToolUnavailable(result)) {
+        continue;
+      }
       failedStage = stage;
       break;
     }

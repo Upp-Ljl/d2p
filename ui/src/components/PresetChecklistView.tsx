@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocale } from '../i18n/useLocale.js';
 import {
   mockPresetItemsRich,
   type MockPresetItem,
@@ -46,12 +47,20 @@ const LABEL_ZH: Record<string, string> = {
   'vision-verdict': '产品满足用户 vision',
 };
 
-const MECHANISM_LABEL: Record<MockMechanism, { zh: string; icon: string }> = {
-  'test-execution':     { zh: '跑测试',     icon: '▶' },
-  'file-exists':        { zh: '查文件',     icon: '☐' },
-  'static-grep':        { zh: '扫文本',     icon: '⌕' },
-  'cross-file-cohesion':{ zh: '跨文件一致', icon: '↔' },
-  'llm-judgment':       { zh: 'LLM 判断',   icon: '✻' },
+const MECHANISM_ICON: Record<MockMechanism, string> = {
+  'test-execution':     '▶',
+  'file-exists':        '☐',
+  'static-grep':        '⌕',
+  'cross-file-cohesion':'↔',
+  'llm-judgment':       '✻',
+};
+
+const MECHANISM_KEY: Record<MockMechanism, string> = {
+  'test-execution':     'preset.mech.test',
+  'file-exists':        'preset.mech.file',
+  'static-grep':        'preset.mech.grep',
+  'cross-file-cohesion':'preset.mech.cohesion',
+  'llm-judgment':       'preset.mech.llm',
 };
 
 const SEVERITY_COLOR: Record<MockPresetItem['severity'], string> = {
@@ -62,10 +71,10 @@ const SEVERITY_COLOR: Record<MockPresetItem['severity'], string> = {
 
 type Status = MockPresetItem['status'];
 
-const STATUS_META: Record<Status, { label: string; chip: string; dot: string }> = {
-  missing: { label: '缺失', chip: 'bg-rust/10 text-rust',     dot: 'bg-rust' },
-  partial: { label: '部分', chip: 'bg-coralsoft text-coral',  dot: 'bg-coral' },
-  done:    { label: '完成', chip: 'bg-sage-50 text-sage-600', dot: 'bg-sage-600' },
+const STATUS_STYLE: Record<Status, { chip: string; dot: string; key: string }> = {
+  missing: { chip: 'bg-rust/10 text-rust',     dot: 'bg-rust',     key: 'preset.status.missing' },
+  partial: { chip: 'bg-coralsoft text-coral',  dot: 'bg-coral',    key: 'preset.status.partial' },
+  done:    { chip: 'bg-sage-50 text-sage-600', dot: 'bg-sage-600', key: 'preset.status.done' },
 };
 
 const APPLIES_LABEL: Record<string, string> = {
@@ -73,6 +82,7 @@ const APPLIES_LABEL: Record<string, string> = {
 };
 
 export function PresetChecklistView() {
+  const { t } = useLocale();
   const items = mockPresetItemsRich;
   const groups: Record<Status, MockPresetItem[]> = { missing: [], partial: [], done: [] };
   for (const i of items) groups[i.status].push(i);
@@ -92,8 +102,8 @@ export function PresetChecklistView() {
               <span className="text-muted/60 text-lg font-normal"> / {total}</span>
             </div>
             <div className="text-xs text-muted/70 mt-0.5">
-              产品级清单完成度 ·{' '}
-              <span className="italic">来源：12-Factor · OWASP Top 10 · OpenSSF · WCAG · SRE</span>
+              {t('preset.header.completion')} ·{' '}
+              <span className="italic">{t('preset.header.source')}</span>
             </div>
           </div>
           <CountUp
@@ -126,11 +136,12 @@ export function PresetChecklistView() {
 }
 
 function CountChip({ status, n }: { status: Status; n: number }) {
-  const meta = STATUS_META[status];
+  const { t } = useLocale();
+  const meta = STATUS_STYLE[status];
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-sans ${meta.chip}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-      {meta.label} {n}
+      {t(meta.key)} {n}
     </span>
   );
 }
@@ -144,8 +155,9 @@ function Group({
   items: MockPresetItem[];
   defaultOpen: boolean;
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(defaultOpen);
-  const meta = STATUS_META[status];
+  const meta = STATUS_STYLE[status];
 
   if (items.length === 0) return null;
 
@@ -158,11 +170,11 @@ function Group({
         aria-expanded={open}
       >
         <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
-        <span className="text-sm font-medium text-ink">{meta.label}</span>
-        <span className="text-xs text-muted/70 font-sans">{items.length} 项</span>
+        <span className="text-sm font-medium text-ink">{t(meta.key)}</span>
+        <span className="text-xs text-muted/70 font-sans">{items.length} {t('preset.group.items')}</span>
         <span className="flex-1" />
         <span className="text-xs text-muted/60 group-hover:text-ink font-sans transition-colors">
-          {open ? '收起 ▴' : '展开 ▾'}
+          {open ? t('preset.group.collapse') : t('preset.group.expand')}
         </span>
       </button>
       {open && (
@@ -183,8 +195,16 @@ function Group({
 }
 
 function ItemCard({ item }: { item: MockPresetItem }) {
-  const labelZh = LABEL_ZH[item.id] ?? item.label;
-  const mechanism = MECHANISM_LABEL[item.mechanism];
+  const { t, locale } = useLocale();
+  // English mode: prefer the original (English) label from mockPresetItemsRich;
+  // Chinese mode: prefer the translated label, fall back to original.
+  const primary = locale === 'en' ? item.label : (LABEL_ZH[item.id] ?? item.label);
+  // Show the alt-language line only in zh mode (where primary is Chinese and
+  // English original is a useful sub-line). In en mode the primary IS the
+  // English original — don't add a Chinese sub-line.
+  const secondary = locale === 'en' ? '' : item.label;
+  const mechZh = t(MECHANISM_KEY[item.mechanism]);
+  const mechIcon = MECHANISM_ICON[item.mechanism];
   return (
     <li className="bg-cream rounded-xl shadow-card ring-1 ring-warmline/60 px-4 py-3.5 lift-on-hover">
       <div className="flex items-start gap-3 mb-2">
@@ -192,29 +212,28 @@ function ItemCard({ item }: { item: MockPresetItem }) {
           {item.severity}
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-ink leading-snug">{labelZh}</div>
-          <div className="text-[11px] text-muted/70 italic font-serif mt-0.5">{item.label}</div>
+          <div className="text-sm text-ink leading-snug">{primary}</div>
+          {secondary && secondary !== primary && (
+            <div className="text-[11px] text-muted/70 italic font-serif mt-0.5">{secondary}</div>
+          )}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pl-10">
         <span
           className="inline-flex items-center gap-1 text-[10px] text-muted/80 font-sans bg-paper px-2 py-0.5 rounded-full"
-          title={`验证方式：${mechanism.zh}`}
+          title={mechZh}
         >
-          <span>{mechanism.icon}</span>
-          {mechanism.zh}
+          <span>{mechIcon}</span>
+          {mechZh}
         </span>
         <span
           className="text-[10px] text-muted/80 font-sans bg-paper px-2 py-0.5 rounded-full font-mono"
-          title={`出处：${item.source}`}
+          title={item.source}
         >
           {item.source}
         </span>
         {item.appliesTo.length < 8 && (
-          <span
-            className="text-[10px] text-muted/80 font-sans bg-paper px-2 py-0.5 rounded-full"
-            title="适用项目类型"
-          >
+          <span className="text-[10px] text-muted/80 font-sans bg-paper px-2 py-0.5 rounded-full">
             {item.appliesTo.map((a) => APPLIES_LABEL[a] ?? a).join(' · ')}
           </span>
         )}

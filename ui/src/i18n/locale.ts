@@ -12,6 +12,25 @@ export const LOCALES: { id: Locale; label: string; native: string }[] = [
 
 export const DEFAULT_LOCALE: Locale = 'zh';
 
+const STORAGE_KEY = 'd2p.locale';
+
+export function loadInitialLocale(): Locale {
+  if (typeof window === 'undefined') return DEFAULT_LOCALE;
+  const raw = window.localStorage?.getItem(STORAGE_KEY);
+  if (raw === 'en' || raw === 'zh') return raw;
+  const browser = (typeof navigator !== 'undefined' && navigator.language) || '';
+  if (/^en/i.test(browser)) return 'en';
+  return DEFAULT_LOCALE;
+}
+
+export function persistLocale(locale: Locale): void {
+  try {
+    window.localStorage?.setItem(STORAGE_KEY, locale);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 // Dict is an object keyed by string id. Add keys here when you i18n-ize a
 // new component. Missing en falls back to zh; missing both falls back to key.
 type Dict = Record<string, { zh: string; en: string }>;
@@ -240,6 +259,64 @@ export const dict: Dict = {
   'preset.mech.grep':         { zh: '扫文本',     en: 'Scan text' },
   'preset.mech.cohesion':     { zh: '跨文件一致', en: 'Cross-file' },
   'preset.mech.llm':          { zh: 'LLM 判断',   en: 'LLM judge' },
+
+  // ── Risk / Review ───────────────────────────────────────────────────
+  'risk.low':                 { zh: '低风险',     en: 'Low risk' },
+  'risk.mid':                 { zh: '中风险',     en: 'Medium risk' },
+  'risk.high':                { zh: '高风险 · 建议看一眼', en: 'High risk · please review' },
+  'risk.level':               { zh: '风险等级: {label}', en: 'Risk: {label}' },
+  'risk.reasons':             { zh: '风险原因',   en: 'Reasons' },
+  'risk.reviewHunks':         { zh: '{n} 处建议人工确认', en: '{n} hunk(s) need review' },
+  'review.hint.title':        { zh: '建议你看一眼这 {n} 处', en: '{n} hunks suggested for your review' },
+  'review.hint.jump':         { zh: '跳转',       en: 'Jump' },
+
+  // ── CorePaths ───────────────────────────────────────────────────────
+  'corepaths.alert.title':    { zh: '动了 {n} 处核心代码 · 需要你确认', en: '{n} core path(s) touched · please confirm' },
+  'corepaths.alert.matched':  { zh: '匹配规则',   en: 'Matched glob' },
+  'corepaths.alert.preview':  { zh: 'diff 预览',  en: 'Diff preview' },
+  'corepaths.alert.reject':   { zh: '否决（不 merge）', en: 'Reject (do not merge)' },
+  'corepaths.alert.allow':    { zh: '允许 merge', en: 'Allow merge' },
+  'corepaths.config.title':   { zh: '核心路径配置 · .d2p/core-paths.yaml', en: 'Core paths · .d2p/core-paths.yaml' },
+  'corepaths.config.source.user':     { zh: '用户固定 ⚓', en: 'User-pinned ⚓' },
+  'corepaths.config.source.inferred': { zh: 'AI 推断 ✻', en: 'AI inferred ✻' },
+  'corepaths.config.add':     { zh: '添加 glob',  en: 'Add glob' },
+  'corepaths.config.remove':  { zh: '移除',       en: 'Remove' },
+  'corepaths.config.reinfer': { zh: '重新让 AI 推断', en: 'Re-run AI inference' },
+
+  // ── Milestones ──────────────────────────────────────────────────────
+  'milestones.title':         { zh: 'Milestone 进度', en: 'Milestone progress' },
+  'milestones.status.pending':    { zh: '待开始', en: 'Pending' },
+  'milestones.status.inProgress': { zh: '进行中', en: 'In progress' },
+  'milestones.status.done':       { zh: '完成',   en: 'Done' },
+  'milestones.detail.vision': { zh: '来自 vision',    en: 'From vision' },
+  'milestones.detail.items':  { zh: '关联清单',       en: 'Linked checklist items' },
+  'milestones.detail.activeGap': { zh: '当前 gap',    en: 'Active gap' },
+
+  // ── SessionResumeBanner ─────────────────────────────────────────────
+  'resume.message':           { zh: '上次你在 gap「{slug}」中断 {n} 小时前，要继续吗？', en: 'You paused on gap "{slug}" {n}h ago — resume?' },
+  'resume.continue':          { zh: '继续',       en: 'Resume' },
+  'resume.discard':           { zh: '放弃这个 gap', en: 'Discard this gap' },
+  'resume.later':             { zh: '稍后',       en: 'Later' },
+
+  // ── MockupPhase ─────────────────────────────────────────────────────
+  'mockup.drafting.title':    { zh: 'd2p 正在为你画产品成品的样子…', en: "d2p is drafting what your product looks like…" },
+  'mockup.drafting.progress': { zh: '已经画好 {done} / {total} 页', en: '{done} / {total} pages drafted' },
+  'mockup.review.approve':    { zh: '✓ 这就是我想要的', en: '✓ This is what I want' },
+  'mockup.review.revise':     { zh: '✎ 我想改一下', en: '✎ I want changes' },
+  'mockup.review.skip':       { zh: '→ 跳过这步', en: '→ Skip this step' },
+  'mockup.revising.title':    { zh: '正在按你的建议重画…', en: 'Redrafting per your feedback…' },
+  'mockup.approved.title':    { zh: '✓ 已对齐预期', en: '✓ Expectations aligned' },
+  'mockup.approved.desc':     { zh: 'differ 正在按这个目标找 gap…', en: 'differ is finding gaps against this target…' },
+
+  // ── CommitDiffDrawer ────────────────────────────────────────────────
+  'diff.title':               { zh: 'commit 详情',    en: 'Commit details' },
+  'diff.files':               { zh: '文件',           en: 'Files' },
+  'diff.binaryFile':          { zh: '二进制文件已变更', en: 'Binary file changed' },
+  'diff.empty':               { zh: '此 commit 无 diff', en: 'No diff in this commit' },
+  'diff.status.modified':     { zh: 'M',              en: 'M' },
+  'diff.status.added':        { zh: 'A',              en: 'A' },
+  'diff.status.deleted':      { zh: 'D',              en: 'D' },
+  'diff.status.renamed':      { zh: 'R',              en: 'R' },
 };
 
 /** Translate `key` into `locale`. Falls back to zh, then to the key itself
@@ -250,7 +327,9 @@ export function translate(key: string, locale: Locale, vars?: Record<string, str
   if (!entry) {
     s = key;
   } else {
-    s = entry[locale] || entry.zh || key;
+    // Use ?? not || so an intentionally-empty translation (e.g. en: '' to
+    // omit a Chinese measure word) is preserved instead of falling back.
+    s = entry[locale] ?? entry.zh ?? key;
   }
   if (vars) {
     s = s.replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? `{${name}}`));

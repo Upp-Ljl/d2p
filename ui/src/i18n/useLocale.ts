@@ -1,25 +1,9 @@
 import { useStore } from '../store.js';
-import { translate, type Locale } from './locale.js';
+import { translate } from './locale.js';
 
-const STORAGE_KEY = 'd2p.locale';
-
-export function loadInitialLocale(): Locale {
-  if (typeof window === 'undefined') return 'zh';
-  const raw = window.localStorage?.getItem(STORAGE_KEY);
-  if (raw === 'en' || raw === 'zh') return raw;
-  // Honor browser language as a soft default for new users.
-  const browser = (typeof navigator !== 'undefined' && navigator.language) || '';
-  if (/^en/i.test(browser)) return 'en';
-  return 'zh';
-}
-
-export function persistLocale(locale: Locale): void {
-  try {
-    window.localStorage?.setItem(STORAGE_KEY, locale);
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
+// loadInitialLocale / persistLocale live in locale.ts now (no store dep) to
+// avoid the circular import store → useLocale → store.
+export { loadInitialLocale, persistLocale } from './locale.js';
 
 /** Hook for components that need the current locale + translate helper.
  *  Subscribing to store.locale forces re-render on language switch. */

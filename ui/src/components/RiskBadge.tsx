@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import type { CommitRisk } from '../mock/risk.js';
+import { useLocale } from '../i18n/useLocale.js';
 
-// Risk band colour tokens
-const BAND_STYLES: Record<CommitRisk['band'], { chip: string; ring: string; label: string }> = {
-  low:  { chip: 'bg-sage-50 text-sage-600',           ring: '',                               label: '低风险' },
-  mid:  { chip: 'bg-coralsoft text-coral',            ring: '',                               label: '中风险' },
-  high: { chip: 'bg-rust/10 text-rust ring-1 ring-rust/30', ring: 'ring-2 ring-rust/40',     label: '高风险 · 建议看一眼' },
+const BAND_STYLE: Record<CommitRisk['band'], { chip: string; ring: string; key: string }> = {
+  low:  { chip: 'bg-sage-50 text-sage-600',                  ring: '',                         key: 'risk.low' },
+  mid:  { chip: 'bg-coralsoft text-coral',                   ring: '',                         key: 'risk.mid' },
+  high: { chip: 'bg-rust/10 text-rust ring-1 ring-rust/30',  ring: 'ring-2 ring-rust/40',      key: 'risk.high' },
 };
 
 interface RiskBadgeProps {
   risk: CommitRisk;
-  /** Called by consumer to get the class to add to the commit card wrapper */
   wrapperClass?: string;
 }
 
-/** Chip showing commit risk band. Hover/tap opens a popover with reasons. */
 export function RiskBadge({ risk }: RiskBadgeProps) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
-  const styles = BAND_STYLES[risk.band];
+  const styles = BAND_STYLE[risk.band];
+  const label = t(styles.key);
 
   return (
     <div className="relative" data-testid={`risk-badge-${risk.sha}`}>
@@ -28,9 +28,9 @@ export function RiskBadge({ risk }: RiskBadgeProps) {
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        aria-label={`风险等级: ${styles.label}`}
+        aria-label={t('risk.level', { label })}
       >
-        {styles.label}
+        {label}
       </button>
 
       {open && risk.reasons.length > 0 && (
@@ -39,7 +39,7 @@ export function RiskBadge({ risk }: RiskBadgeProps) {
           role="tooltip"
         >
           <div className="font-medium mb-2 text-cream/80 uppercase tracking-wider text-[10px]">
-            风险原因
+            {t('risk.reasons')}
           </div>
           <ul className="space-y-1.5">
             {risk.reasons.map((r, i) => (
@@ -51,7 +51,7 @@ export function RiskBadge({ risk }: RiskBadgeProps) {
           </ul>
           {risk.reviewHunks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-cream/10 text-cream/60">
-              {risk.reviewHunks.length} 处建议人工确认
+              {t('risk.reviewHunks', { n: risk.reviewHunks.length })}
             </div>
           )}
         </div>
@@ -60,8 +60,7 @@ export function RiskBadge({ risk }: RiskBadgeProps) {
   );
 }
 
-/** Returns the ring class to apply to a commit card when risk is high */
 export function riskCardRingClass(risk: CommitRisk | undefined): string {
   if (!risk) return '';
-  return BAND_STYLES[risk.band].ring;
+  return BAND_STYLE[risk.band].ring;
 }

@@ -17,8 +17,7 @@ import { api, openLogStream, openCcStream } from './api.js';
 import type { MultiTurnTurn, MultiTurnPhase, ScratchpadNote } from './types.js';
 import { mockStoreFor } from './mock/data.js';
 import { startMockMultiTurnStream, mockMultiTurnIdle } from './mock/multiTurn.js';
-import { loadInitialLocale, persistLocale } from './i18n/useLocale.js';
-import type { Locale } from './i18n/locale.js';
+import { loadInitialLocale, persistLocale, type Locale } from './i18n/locale.js';
 
 interface Store {
   // health

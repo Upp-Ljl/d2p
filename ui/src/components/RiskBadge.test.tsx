@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RiskBadge, riskCardRingClass } from './RiskBadge.js';
 import { mockRiskByCommitSha } from '../mock/risk.js';
+import { useStore } from '../store.js';
+
+beforeEach(() => {
+  useStore.setState({ locale: 'zh' });
+});
 
 describe('RiskBadge', () => {
   it('renders low risk chip with correct label', () => {

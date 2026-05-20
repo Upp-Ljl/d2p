@@ -52,6 +52,7 @@
       <nav class="docket-nav" aria-label="主导航">
         <a href="#shift">夜班记录</a>
         <a href="#gates">4 层 reviewer</a>
+        <a href="#rollback">回滚</a>
         <a href="#sworn">不撤销的事</a>
         <a href="https://github.com/Upp-Ljl/d2p" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a class="docket-cta" href="#download">↓ clone</a>
@@ -307,35 +308,35 @@ gap.category: docs</pre>
               <span class="case-slug">做不到的事 · 写在 PR 里</span>
             </div>
             <h3 class="case-title" id="case-03-title">
-              不偷偷塞。<em class="accent-em">做不到的全公示</em>。
+              AI 装作什么都做了。<em class="accent-em">我们写下它做不到什么</em>。
             </h3>
             <p class="case-summary">
-              AI 写代码的暗病:.skip 测试、@ts-ignore、关 CSRF、藏 vision 不一致。ZeroU 反着来 — reviewer 拒掉的全进 NEED_HUMAN,写进 PR body。下面是同一 session 的两种"交付"。
+              行业暗病:跳测试、@ts-ignore、关 CSRF、藏不一致 — 让 demo 看着像 done。ZeroU 反着来:reviewer 拒掉的每条 gap,挂到 PR body 第三段。同一份工作,两种"交付"摆下面。
             </p>
           </header>
 
           <div class="comparison">
             <article class="compare compare-not">
               <span class="exhibit-tag exhibit-tag-static compare-tag-muted">不是这样</span>
-              <div class="compare-mode">他人模式 · 偷偷塞</div>
+              <div class="compare-mode">别家 · 假装全过</div>
               <p class="compare-line compare-line-strike">
-                「session #4 — 28 项全 ✓,fix 全 merged。Enhanced! ✨」
+                「28 项 ✓ · 全部 merged · Enhanced! ✨」
               </p>
               <div class="compare-note">
-                ↑ 实际:auth-csrf 被 .skip 了 / db-backup-path 用 @ts-ignore 跳过 / 24 项 vision-不一致都没说<br />
-                这是 marketing 干的事,不是工程干的事。
+                ↑ 实际:auth-csrf 被 .skip · db-backup-path @ts-ignore · 24 项 vision 不一致从没出现在 PR 里。<br />
+                这是 demo 厂的活,不是工程的活。
               </div>
             </article>
 
             <article class="compare compare-is">
               <span class="exhibit-tag exhibit-tag-static compare-tag-mint">这样才对</span>
-              <div class="compare-mode">ZEROU · 写进 PR body</div>
+              <div class="compare-mode">ZEROU · PR body 第三段</div>
               <p class="compare-line">
-                「session #4 · 1h 31min · cost <span class="compare-em">$4.24</span> · merged: 2 · NEED_HUMAN:<span class="compare-em"> 24 项</span> — 每一项都附 reviewer 拒掉的原因。」
+                「1h 31min · <span class="compare-em">$4.24</span> · merged <span class="compare-em">2</span> · NEED_HUMAN <span class="compare-em">24</span> — 每条都注明 reviewer 为什么拒。」
               </p>
               <div class="compare-note">
-                ↑ PR body 第三段:全部 24 项 · slug · severity · reason_code<br />
-                你 review PR 的人,一眼看见它做不到什么。
+                ↑ 下面就是 PR body 第三段的真截图:24 项 · slug · severity · reason_code。<br />
+                你的同事 review 这条 PR 时,一眼看见它做不到什么。
               </div>
             </article>
           </div>
@@ -343,8 +344,8 @@ gap.category: docs</pre>
           <!-- MOMENT 2 · NEED_HUMAN public ledger -->
           <article class="feature-moment feature-moment--ledger" data-fm-ledger>
             <header class="fm-head">
-              <span class="fm-tag">posted · session #4</span>
-              <span class="fm-meta"><span data-fm-ledger-count>24</span> 件 ZeroU 做不到的事 · 写进 PR body</span>
+              <span class="fm-tag">PR body · 第三段</span>
+              <span class="fm-meta"><span data-fm-ledger-count>24</span> 条 NEED_HUMAN · reviewer 拒掉 · 公开挂在 PR 里</span>
             </header>
             <ol class="fm-ledger">
               <li class="fm-row" data-slug="auth-csrf-protection"        data-sev="P1" data-code="INCOMPLETE"></li>
@@ -357,8 +358,12 @@ gap.category: docs</pre>
               <li class="fm-row" data-slug="ui-loading-states"           data-sev="P2" data-code="ALIGNMENT_LOW"></li>
               <li class="fm-row fm-row-more" data-more>+ 14 more · all NEED_HUMAN in PR body</li>
             </ol>
-            <footer class="fm-foot">每条都附 reason code · reviewer 拒掉的理由不藏。</footer>
+            <footer class="fm-foot">每条都带 reason code。这是 reviewer 拒掉的原话,不是事后包装。</footer>
           </article>
+
+          <p class="receipt-caption">
+            <strong>这条 PR 现在挂在 GitHub。</strong> 下面是它 body 第三段的真截图 — 一字未改。
+          </p>
 
           <!-- Real PR body excerpt -->
           <div class="receipt">
@@ -388,7 +393,7 @@ state; left for you to triage.
 ---
 d2p session #4, base `main` · cost ~$4.24
 See `.d2p/session-summary.md` in the repo for the full run log.</pre>
-            <div class="receipt-foot">— 你 review 的不是"它做了什么",是"它做不到什么"。</div>
+            <div class="receipt-foot">— review 这条 PR,你看的不是它做了什么。是它公示了它做不到什么。</div>
           </div>
 
         </article>
@@ -417,55 +422,18 @@ See `.d2p/session-summary.md` in the repo for the full run log.</pre>
 
     <hr class="section-rule" />
 
-    <!-- ─────────────────────────────────────────── Video — the 60s real run -->
-    <section class="theatre" id="watch" aria-labelledby="theatre-h2">
-      <div class="container">
-        <div class="case-label">
-          <span class="case-num">看带 · 04</span>
-          <span class="case-slug">1h 31min 压到 60 秒</span>
-        </div>
-        <h2 class="case-title" id="theatre-h2">
-          看一眼 1h 31min 的真班次。
-        </h2>
-        <p class="case-summary">
-          无旁白 · 真数据 · 真 sha · 真 PR · 真评分。
-        </p>
-        <div class="theatre-frame">
-          <video
-            src="zerou-demo.mp4"
-            controls
-            autoplay
-            loop
-            muted
-            playsinline
-            preload="auto"
-            class="theatre-video"
-            aria-label="ZeroU 60-second shift recap"
-          ></video>
-          <div class="theatre-scanlines" aria-hidden="true"></div>
-          <div class="theatre-glow" aria-hidden="true"></div>
-        </div>
-        <div class="theatre-strip" aria-label="本次 shift 数据">
-          <div class="strip-cell"><span class="strip-label">duration</span><span class="strip-val">1h 31min</span></div>
-          <div class="strip-cell"><span class="strip-label">cost</span><span class="strip-val">$4.24</span></div>
-          <div class="strip-cell"><span class="strip-label">merged</span><span class="strip-val">2 / 28</span></div>
-          <div class="strip-cell"><span class="strip-label">need_human</span><span class="strip-val">24 公示</span></div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="section-rule" />
-
     <!-- ─────────────────────────────────────────── MOMENT M4 · overnight clock sweep -->
     <section class="fm-section" id="overnight" aria-labelledby="overnight-h2">
       <div class="container">
         <div class="case-label">
           <span class="case-num">回放 · 04.5</span>
-          <span class="case-slug">一晚的 shift · 压成 8 秒</span>
+          <span class="case-slug">真 shift · 22:11 → 23:43 · 加速 11 倍回放</span>
         </div>
         <h2 class="case-title" id="overnight-h2">
-          22:11 → 23:43。<em class="accent-em">1h 31min 压到 8 秒。</em>
+          一晚跑完的 shift,<em class="accent-em">压成 8 秒看个全貌</em>。
         </h2>
+        <p class="case-summary">
+          这是 session #4 实际运行 1h 31min 的可视化加速回放,不是上传速度。每个 commit 都是真 sha,每个数据点都从真 session 来。</p>
         <article class="feature-moment feature-moment--overnight" data-fm-overnight>
           <header class="fm-head">
             <span class="fm-tag">replay · overnight shift 22:11 → 23:43</span>
@@ -517,16 +485,16 @@ See `.d2p/session-summary.md` in the repo for the full run log.</pre>
           <span class="case-slug">为什么 4 道 · 不是 1 道</span>
         </div>
         <h2 class="case-title" id="gates-h2">
-          每个 fix 走 <em class="accent-em">4 道门</em>。才能合 main。
+          4 个独立审稿人。<em class="accent-em">一道挂了整批退</em>。
         </h2>
         <p class="case-summary">
-          单 LLM 自审有盲区——它判不出自己。4 个角色 + 4 份 fresh context 把盲区切碎。一道不过 — fix 回退或升级 NEED_HUMAN。
+          单 LLM 自审有盲区:它看不见自己背后。ZeroU 让 4 个角色、4 份 fresh context 互相抓 bug。一道不过 — fix 整体退或升级 NEED_HUMAN。
         </p>
 
         <!-- MOMENT 1 · 4-lane oscilloscope -->
         <article class="feature-moment feature-moment--lanes" data-fm-lanes>
           <header class="fm-head">
-            <span class="fm-tag">live · pipeline oscilloscope</span>
+            <span class="fm-tag">live · 4 条流水线</span>
             <span class="fm-meta" data-fm-label>fix #27 · docs-changelog-missing</span>
           </header>
           <div class="fm-lanes-stage">
@@ -539,35 +507,35 @@ See `.d2p/session-summary.md` in the repo for the full run log.</pre>
             </ol>
             <div class="fm-sink"><span class="fm-sink-mark" data-fm-sink>— waiting —</span></div>
           </div>
-          <footer class="fm-foot">一片亮 = 一条 fix。绿到底 = merged。红 = NEED_HUMAN。</footer>
+          <footer class="fm-foot">一道亮一次 = 一条 fix 过这道门。4 道绿到底 = merged。任一红 = NEED_HUMAN。</footer>
         </article>
 
         <ol class="gate-list">
           <li class="gate">
             <span class="gate-num">G1.</span>
-            <h3 class="gate-h">不是 AI · 是命令行。</h3>
+            <h3 class="gate-h">先让机器骂一遍。<small> · 不是 AI · 是命令行</small></h3>
             <p class="gate-p">
               <code>tsc --noEmit · npm test · npm run build</code>
-              。跑不过的 fix 根本进不了下一道。
+              跑一遍。连编译都过不去的 fix,进不了下一道 — <strong>省 AI 调用费,也防 AI 自己骗自己</strong>。
             </p>
             <span class="gate-tag">static gate</span>
           </li>
           <li class="gate">
             <span class="gate-num">G2.</span>
-            <h3 class="gate-h">对题快检 · 不偏题、不 scope creep。</h3>
-            <p class="gate-p">haiku quick pass:写的是 vision 要的吗?顺手改了别的吗?score &lt; 0.7 驳回。</p>
+            <h3 class="gate-h">写的是 vision 要的吗?<small> · 对题快检</small></h3>
+            <p class="gate-p">haiku 快速过一遍 diff:写了 vision 要的吗?顺手改了别的吗?对题分 &lt; 0.7 驳回 — <strong>防 AI 改着改着跑题</strong>。</p>
             <span class="gate-tag">alignment</span>
           </li>
           <li class="gate">
             <span class="gate-num">G3.</span>
-            <h3 class="gate-h">思路审核 · approach 扎不扎实。</h3>
-            <p class="gate-p">sonnet · fresh context · 从零看 diff。四档 verdict:APPROVE / RETRY / ROLLBACK / SPLIT。失败给重试提示。</p>
+            <h3 class="gate-h">思路扎不扎实?<small> · fresh context 看 diff</small></h3>
+            <p class="gate-p">sonnet 拿到一份没人碰过的 fresh context — 从零看 diff,从零判 approach。四档 verdict:APPROVE / RETRY / ROLLBACK / SPLIT。<strong>4 个 reviewer 没看过彼此的结论,没法互相洗稿</strong>。</p>
             <span class="gate-tag">behavioral</span>
           </li>
           <li class="gate">
             <span class="gate-num">G4.</span>
-            <h3 class="gate-h">攻击视角 · 能不能打穿。</h3>
-            <p class="gate-p">高敏 category(auth/sql/crypto)才触发。sonnet 出 N 条 vector,一条 BREAK 整 fix rollback。</p>
+            <h3 class="gate-h">让 AI 自己想着打穿自己写的代码。</h3>
+            <p class="gate-p">只在 auth / sql / crypto 这种高敏 path 触发(不是每条 fix 都跑 — 控成本)。sonnet 戴上攻击者的帽子,列 N 条攻击向量。<strong>一条 BREAK,整 fix rollback</strong>。</p>
             <span class="gate-tag">adversarial</span>
           </li>
         </ol>
@@ -575,8 +543,8 @@ See `.d2p/session-summary.md` in the repo for the full run log.</pre>
         <!-- MOMENT 3 · orchestrator orbit -->
         <article class="feature-moment feature-moment--orbit" data-fm-orbit>
           <header class="fm-head">
-            <span class="fm-tag">live · orchestrator dispatch</span>
-            <span class="fm-meta">6 agent · <span data-fm-cycle>0</span> / ∞ dispatch</span>
+            <span class="fm-tag">live · 中心派单</span>
+            <span class="fm-meta">6 个 agent · <span data-fm-cycle>0</span> / ∞ 单</span>
           </header>
           <div class="fm-orbit-stage">
             <svg class="fm-orbit-lines" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true">
@@ -599,6 +567,56 @@ See `.d2p/session-summary.md` in the repo for the full run log.</pre>
           </div>
           <footer class="fm-foot">中心派单 · agent 接活 · verdict 回执 · 不停转。</footer>
         </article>
+      </div>
+    </section>
+
+    <hr class="section-rule" />
+
+    <!-- ─────────────────────────────────────────── Rollback / checkpoint timeline -->
+    <section class="rollback" id="rollback" aria-labelledby="rollback-h2">
+      <div class="container">
+        <div class="case-label">
+          <span class="case-num">回滚 · 06</span>
+          <span class="case-slug">git butler 风 · 每个 commit 都是回滚点</span>
+        </div>
+        <h2 class="case-title" id="rollback-h2">
+          不喜欢这个 commit?<em class="accent-em">一键回去。</em>
+        </h2>
+        <p class="case-summary">
+          每个合 main 的 fix 自动留一个 checkpoint。 T 分级排:T0 关键(用户 pin / 大变更前) · T1 普通 · T2 一周自动清。打开 checkpoint timeline,点 ↶,worktree 立刻回到那个 sha。
+        </p>
+
+        <div class="rollback-stage">
+          <article class="rollback-card">
+            <div class="rollback-card-title">checkpoint timeline · session #4</div>
+            <ol class="rollback-tier-list">
+              <li><span class="rollback-tier rollback-tier-T0">T0</span><span><strong>5aedd6e</strong> · pre-loop baseline · <span style="color:var(--gold)">pinned by user</span></span></li>
+              <li><span class="rollback-tier rollback-tier-T1">T1</span><span><strong>3d2ad5f</strong> · docs scaffolding · auto-saved</span></li>
+              <li><span class="rollback-tier rollback-tier-T1">T1</span><span><strong>5aedd6e</strong> · docs/CHANGELOG · merged</span></li>
+              <li><span class="rollback-tier rollback-tier-T1">T1</span><span><strong>4b58841</strong> · readme expansion · merged</span></li>
+              <li><span class="rollback-tier rollback-tier-T2">T2</span><span><strong>53df272</strong> · README v2 draft · GC in 7d</span></li>
+            </ol>
+          </article>
+
+          <article class="rollback-card">
+            <div class="rollback-card-title">什么时候回滚?</div>
+            <p class="rollback-quote">
+              「reviewer 都过了,但 <span class="rollback-quote-em">我换个思路</span>。」<br />
+              「这个 fix 跑出来 prod 就报 500。<span class="rollback-quote-em">退回上一个 checkpoint</span>。」<br />
+              「ZeroU 想接管 5 个文件,<span class="rollback-quote-em">我先 pin 一个 T0 再说</span>。」
+            </p>
+            <pre class="rollback-mono"><span class="ink">$</span> <span class="mint">zerou checkpoint list</span>
+T0  5aedd6e  pre-loop baseline       <span class="gold">pinned</span>
+T1  3d2ad5f  docs scaffolding         42m ago
+T1  5aedd6e  docs/CHANGELOG · merged  31m ago
+T1  4b58841  readme expansion         12m ago
+T2  53df272  README v2 draft          GC in 7d
+
+<span class="ink">$</span> <span class="mint">zerou rewind</span> 5aedd6e
+↶ worktree reset · branch fix/* abandoned
+✓ on checkpoint <span class="mint">5aedd6e</span> · session resumed</pre>
+          </article>
+        </div>
       </div>
     </section>
 

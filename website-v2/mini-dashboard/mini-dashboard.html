@@ -4,11 +4,22 @@
   so this file is illustrative only. Drop-in usage:
     <div id="zerou-console"></div>
     <script src="mini-dashboard/mini-dashboard.js" defer></script>
+
+  Surfaces the 4 ZeroU primitives:
+    PROJECT     → breadcrumb (top row)
+    SESSION     → breadcrumb · topbar · preset bar
+    AGENT       → AGENTS column (6 roles · idle/working/passing/done/blocked)
+    CHECKPOINT  → CHECKPOINTS column (T0 gold · T1 mint · T2 faint · ↶ rewind)
 -->
-<div id="zerou-console" class="zu-console" role="region" aria-label="ZeroU live console">
+<div id="zerou-console" class="zu-console" role="region" aria-label="ZeroU live console — project / session / agent / checkpoint">
   <noscript>
-    <div style="padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#C8C5BA;">
-      ZEROU live console requires JavaScript. Without it, see the 60s video below.
+    <div style="padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#C8C5BA;line-height:1.6">
+      <div style="color:#7CFFB2;font-weight:700;letter-spacing:.14em;margin-bottom:6px">ZEROU · live console</div>
+      <div>agent-game-platform ▸ session #4 ▸ ▶ LOOPING · cost $4.24 · 8/28 preset</div>
+      <div style="margin-top:10px;color:#8E8B7E">
+        4 columns: AGENTS · PIPELINE · COMMITS · CHECKPOINTS.
+        Live demo requires JavaScript — without it, see the 60s video below.
+      </div>
     </div>
   </noscript>
 </div>

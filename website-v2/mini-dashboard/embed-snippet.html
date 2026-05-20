@@ -1,6 +1,19 @@
 <!--
   ZeroU Live Console — embed instructions.
   Two steps:  paste section into index.html  +  add one <script>.
+
+  WHAT IT SHOWS (post-v2 upgrade):
+    Top breadcrumb : project ▸ session #4 ▸ ▶ LOOPING · cost · elapsed
+    Topbar         : preset N/28 · gaps queued · branch · NEED_HUMAN · PR chip
+    Preset bar     : 28-tick progress
+    4-col body     : AGENTS (6, with thoughts) · PIPELINE · COMMITS · CHECKPOINTS
+    Log stream    : 4-line rolling fade
+
+  This surfaces the 4 ZeroU primitives in one frame:
+    PROJECT  → breadcrumb
+    SESSION  → breadcrumb · topbar stats · preset bar
+    AGENT    → col 1 (6 roles · idle / working / passing / done / blocked)
+    CHECKPOINT → col 4 (T0 gold · T1 mint · T2 faint · hover ↶ rewind)
 -->
 
 <!--
@@ -15,6 +28,14 @@
   i.e. right after the closing </section> of the cases / shift block
   (around line 377 of index.html), so the page flow becomes:
     Hero → 3 cases (id="shift") → [LIVE CONSOLE here] → 60s video → gates → ...
+
+  POST-V2 NOTE: with the new dashboard showing the full project /
+  session / agent / checkpoint hierarchy, the 60s video section below
+  (<section class="theatre" id="watch">) is now redundant. Two options:
+    (a) delete the entire <section class="theatre"> block, OR
+    (b) replace its body with a short "↑ already running above" callout
+        that scrolls users back to #live.
+  See report comment for the exact recommendation.
 -->
 
 <hr class="section-rule" />
@@ -29,7 +50,9 @@
       看 ZeroU <em class="accent-em">现在</em> 在做什么。
     </h2>
     <p class="case-summary">
-      产品 UI 的 mini 版,每 32 秒演一遍完整循环:differ → implementer → 4 层 reviewer → merge / NEED_HUMAN。真 commit sha、真 PR。
+      产品 UI 的 mini 版,完整展示 project → session → agent → checkpoint
+      四层架构。每 ~50 秒演一遍:differ 扫描 → 3 个 fix(一个 NEED_HUMAN、两个 merged)
+      → 用户按 ↶ rewind 回滚到上一个 checkpoint。真 commit sha、真 PR。
     </p>
     <div id="zerou-console"></div>
   </div>
@@ -41,10 +64,26 @@
   near the bottom of <body> (around line 572):
 -->
 
-<script src="mini-dashboard/mini-dashboard.js?v=1" defer></script>
+<script src="mini-dashboard/mini-dashboard.js?v=2" defer></script>
 
 <!--
   Done. The script auto-injects the stylesheet, renders the dashboard,
-  and runs a 32s loop (paused via IntersectionObserver when off-screen).
+  and runs a ~52s loop (paused via IntersectionObserver when off-screen).
   No external libs. All data hardcoded in mini-dashboard.js DATA constant.
+
+  LOOP TIMELINE (≈ 52s total, per cycle):
+    00.0–02.4s  differ scans · 28 gaps found · agent thoughts visible
+    03.2–09.3s  fix #27 docs-changelog · attempt 1 · all pass → MERGED 5aedd6e → CHECKPOINT T1
+    11.0–17.4s  fix #28 auth-csrf · attempt 2 · alignment FAIL (0.55) → NEED_HUMAN +1 (no checkpoint)
+    19.4–26.0s  fix #29 readme-expansion · attempt 3 · all pass → MERGED 4b58841 → CHECKPOINT T1 + PR #6
+    28.2–30.0s  done-check vision verdict · NOT_DONE · session continues
+    32.5–34.5s  user hovers checkpoint 5aedd6e (highlight + ↶ rewind chip)
+    34.5–38.0s  REWIND ANIMATION · banner shown · top commit strike-through · preset −1 · state → REWIND
+    38.0–43.0s  back to LOOPING · loop restarts
+
+  EMBED VARIANTS (advanced):
+    - Replace the <div id="zerou-console"></div> mount with
+      <div data-zerou-console></div> if the `id` collides with your CSS.
+    - To pin a different start time, edit `state.clockSec` + DATA.clockStart.
+    - To swap the project name, edit DATA.project + DATA.prUrl in mini-dashboard.js.
 -->

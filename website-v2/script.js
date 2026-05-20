@@ -289,4 +289,108 @@
   // ─── Footer year (if any data-year attr) ────────────────────
   var yearEl = document.querySelector('[data-year]');
   if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+  // ─── Exhibit + voice 3D mouse-tracked tilt ────────────────
+  // Subtle parallax, max 6deg, eases back when mouse leaves
+  if (!prefersReduced) {
+    var tiltTargets = document.querySelectorAll(
+      '.exhibit, .voice, .compare, .strip-cell',
+    );
+    tiltTargets.forEach(function (card) {
+      card.style.transformStyle = 'preserve-3d';
+      card.style.willChange = 'transform';
+
+      card.addEventListener('mousemove', function (e) {
+        var rect = card.getBoundingClientRect();
+        var x = (e.clientX - rect.left) / rect.width;  // 0..1
+        var y = (e.clientY - rect.top) / rect.height;  // 0..1
+        var tiltX = (0.5 - y) * 5;   // up-down rotation
+        var tiltY = (x - 0.5) * 5;   // left-right rotation
+        card.style.transform =
+          'perspective(900px) rotateX(' +
+          tiltX.toFixed(2) +
+          'deg) rotateY(' +
+          tiltY.toFixed(2) +
+          'deg) translateY(-3px)';
+      });
+
+      card.addEventListener('mouseleave', function () {
+        card.style.transform = '';
+      });
+    });
+  }
+
+  // ─── Floating ambient orbs (canvas, very low-density) ─────
+  // 8 mint dots drifting slowly. Pure visual flair, no interaction.
+  if (!prefersReduced && document.querySelector('.hero')) {
+    var orbCanvas = document.createElement('canvas');
+    orbCanvas.style.cssText =
+      'position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0.55;';
+    document.body.appendChild(orbCanvas);
+    var ctx2 = orbCanvas.getContext('2d');
+
+    function resizeOrb() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      orbCanvas.width = window.innerWidth * dpr;
+      orbCanvas.height = window.innerHeight * dpr;
+      orbCanvas.style.width = window.innerWidth + 'px';
+      orbCanvas.style.height = window.innerHeight + 'px';
+      ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resizeOrb();
+    window.addEventListener('resize', resizeOrb, { passive: true });
+
+    var ORBS = 7;
+    var orbs = [];
+    for (var k = 0; k < ORBS; k++) {
+      orbs.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: 1 + Math.random() * 2,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: -0.08 - Math.random() * 0.12,
+        hue: Math.random() > 0.7 ? 'gold' : 'mint',
+        a: 0.3 + Math.random() * 0.4,
+      });
+    }
+
+    function drawOrbs() {
+      ctx2.clearRect(0, 0, orbCanvas.width, orbCanvas.height);
+      orbs.forEach(function (o) {
+        o.x += o.vx;
+        o.y += o.vy;
+        // wrap
+        if (o.x < -10) o.x = window.innerWidth + 10;
+        if (o.x > window.innerWidth + 10) o.x = -10;
+        if (o.y < -10) o.y = window.innerHeight + 10;
+
+        var col =
+          o.hue === 'gold'
+            ? 'rgba(255, 214, 107,'
+            : 'rgba(124, 255, 178,';
+
+        // glow
+        var grad = ctx2.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r * 8);
+        grad.addColorStop(0, col + (o.a * 0.8) + ')');
+        grad.addColorStop(0.4, col + (o.a * 0.25) + ')');
+        grad.addColorStop(1, col + '0)');
+        ctx2.fillStyle = grad;
+        ctx2.beginPath();
+        ctx2.arc(o.x, o.y, o.r * 8, 0, Math.PI * 2);
+        ctx2.fill();
+
+        // core
+        ctx2.fillStyle = col + o.a + ')';
+        ctx2.beginPath();
+        ctx2.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+        ctx2.fill();
+      });
+      requestAnimationFrame(drawOrbs);
+    }
+    requestAnimationFrame(drawOrbs);
+  }
+
+  // ─── Counter blur during ticker (extends animateCounter feel) ──
+  // wraps existing counter logic: add a `.is-ticking` class while running
+  // already happens via animateCounter — we just style it. CSS hook below.
 })();
